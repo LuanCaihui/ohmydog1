@@ -14,7 +14,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public Repost findById(Integer repostId) {
-        String sql = "SELECT blog_id, user_id, reposts_time, repost_id FROM reposts WHERE repost_id = ?";
+        String sql = "SELECT blog_Id, user_id, reposts_time, repost_id FROM reposts WHERE repost_id = ?";
         try {
             return queryForObject(sql, this::mapRowToRepost, repostId);
         } catch (SQLException e) {
@@ -24,7 +24,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public List<Repost> findByOriginalBlogId(Integer originalBlogId, int pageNum, int pageSize) {
-        String sql = "SELECT blog_id, user_id, reposts_time, repost_id FROM reposts WHERE blog_id = ? ORDER BY reposts_time DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT blog_Id, user_id, reposts_time, repost_id FROM reposts WHERE blog_Id = ? ORDER BY reposts_time DESC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToRepost, originalBlogId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -34,7 +34,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public List<Repost> findByUserId(Integer userId, int pageNum, int pageSize) {
-        String sql = "SELECT blog_id, user_id, reposts_time, repost_id FROM reposts WHERE user_id = ? ORDER BY reposts_time DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT blog_Id, user_id, reposts_time, repost_id FROM reposts WHERE user_id = ? ORDER BY reposts_time DESC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToRepost, userId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -44,7 +44,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public int countByOriginalBlogId(Integer originalBlogId) {
-        String sql = "SELECT COUNT(*) FROM reposts WHERE blog_id = ?";
+        String sql = "SELECT COUNT(*) FROM reposts WHERE blog_Id = ?";
         try {
             Number count = (Number) queryForSingleValue(sql, originalBlogId);
             return count != null ? count.intValue() : 0;
@@ -66,7 +66,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public boolean hasReposted(Integer userId, Integer originalBlogId) {
-        String sql = "SELECT COUNT(*) FROM reposts WHERE user_id = ? AND blog_id = ?";
+        String sql = "SELECT COUNT(*) FROM reposts WHERE user_id = ? AND blog_Id = ?";
         try {
             Number count = (Number) queryForSingleValue(sql, userId, originalBlogId);
             return count != null && count.intValue() > 0;
@@ -77,7 +77,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public int insert(Repost repost) {
-        String sql = "INSERT INTO reposts (blog_id, user_id, reposts_time, repost_id) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO reposts (blog_Id, user_id, reposts_time, repost_id) VALUES (?, ?, ?, ?)";
         try {
             return insert(sql, repost.getBlogId(), repost.getUserId(),
                          repost.getRepostsTime(), repost.getRepostId());
@@ -114,7 +114,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     @Override
     public int deleteByOriginalBlogId(Integer originalBlogId) {
-        String sql = "DELETE FROM reposts WHERE blog_id = ?";
+        String sql = "DELETE FROM reposts WHERE blog_Id = ?";
         try {
             return update(sql, originalBlogId);
         } catch (SQLException e) {
@@ -124,7 +124,7 @@ public class RepostDAOImpl extends BaseJdbcDAO<Repost> implements RepostDAO {
 
     private Repost mapRowToRepost(ResultSet rs) throws SQLException {
         Repost repost = new Repost();
-        repost.setBlogId(rs.getInt("blog_id"));
+        repost.setBlogId(rs.getInt("blog_Id"));
         repost.setUserId(rs.getInt("user_id"));
         repost.setRepostsTime(rs.getObject("reposts_time", LocalDateTime.class));
         repost.setRepostId(rs.getInt("repost_id"));

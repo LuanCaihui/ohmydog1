@@ -191,33 +191,38 @@
             }
 
             try {
+                console.log('发送登录请求: name=' + name);
                 const response = await fetch('/petblog/api/auditors/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: name,
+                        name: name.trim(),
                         password: password
                     })
                 });
 
+                console.log('登录响应状态:', response.status);
                 const result = await response.json();
+                console.log('登录响应结果:', result);
                 
                 if (response.ok && result.id) {
                     // 登录成功，保存审核员信息到sessionStorage
                     sessionStorage.setItem('currentAuditor', JSON.stringify(result));
+                    console.log('登录成功，跳转到审核员页面');
                     // 跳转到审核员页面
                     window.location.href = '/petblog/auditor.html';
                 } else {
                     // 登录失败
                     const errorMsg = result.error || '登录失败，请检查账号和密码';
+                    console.error('登录失败:', errorMsg);
                     passwordError.textContent = errorMsg;
                     passwordError.style.display = 'block';
                 }
             } catch (error) {
                 console.error('登录请求失败:', error);
-                passwordError.textContent = '登录请求失败，请稍后重试';
+                passwordError.textContent = '登录请求失败，请稍后重试: ' + error.message;
                 passwordError.style.display = 'block';
             }
         });

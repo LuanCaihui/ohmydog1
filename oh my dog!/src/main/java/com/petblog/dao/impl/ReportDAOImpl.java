@@ -96,12 +96,22 @@ public class ReportDAOImpl extends BaseJdbcDAO<Report> implements ReportDAO {
 
     @Override
     public boolean hasReported(Integer userId, Integer targetType, Integer targetId) {
-        String sql = "SELECT COUNT(*) FROM reports WHERE user_id = ? AND target_type = ? AND target_id = ?";
+        String sql = "SELECT COUNT(*) FROM reports WHERE user_id = ? AND blog_id = ?";
         try {
-            Number count = (Number) queryForSingleValue(sql, userId, targetType, targetId);
+            Number count = (Number) queryForSingleValue(sql, userId, targetId);
             return count != null && count.intValue() > 0;
         } catch (SQLException e) {
             return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "检查用户是否已举报过目标", false);
+        }
+    }
+
+    @Override
+    public List<Report> findAll() {
+        String sql = "SELECT blog_id, user_id, report_id, reason, report_status, report_createdtime, report_handled_time FROM reports ORDER BY report_createdtime DESC";
+        try {
+            return queryForList(sql, this::mapRowToReport);
+        } catch (SQLException e) {
+            return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "查询所有举报列表", null);
         }
     }
 

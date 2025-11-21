@@ -91,14 +91,23 @@ public class AuditorService extends BaseService {
      */
     public Auditor login(String name, String password) {
         try {
+            System.out.println("审核员登录尝试: name=" + name + ", password=" + password);
             Auditor auditor = auditorDAO.findByName(name);
+            System.out.println("查询结果: " + (auditor != null ? "找到审核员 id=" + auditor.getAuditorId() : "未找到审核员"));
             if (auditor != null) {
-                // 这里简化处理，实际应该验证密码（如果数据库有密码字段）
-                // 目前只验证名称是否存在
-                return auditor;
+                // 验证密码
+                if (auditor.getAuditorPassword() != null && auditor.getAuditorPassword().equals(password)) {
+                    System.out.println("密码验证成功");
+                    return auditor;
+                } else {
+                    System.out.println("密码验证失败: 数据库密码=" + auditor.getAuditorPassword() + ", 输入密码=" + password);
+                    return null;
+                }
             }
             return null;
         } catch (SQLException e) {
+            System.err.println("审核员登录SQL异常: " + e.getMessage());
+            e.printStackTrace();
             SQLExceptionHandler.handleSQLException(e, "审核员登录");
             return null;
         }

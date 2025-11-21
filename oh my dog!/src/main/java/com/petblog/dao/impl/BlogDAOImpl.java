@@ -60,8 +60,8 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
                      "u.user_name, u.user_avatar_path, " +
                      "COALESCE((SELECT COUNT(*) FROM likes WHERE likes.blog_id = b.blog_id), 0) as like_count, " +
                      "COALESCE((SELECT COUNT(*) FROM favorites WHERE favorites.blog_id = b.blog_id), 0) as favorite_count, " +
-                     "COALESCE((SELECT COUNT(*) FROM replies WHERE replies.blog_id = b.blog_id AND replies.parent_reply IS NULL), 0) as comment_count, " +
-                     "COALESCE((SELECT COUNT(*) FROM reposts WHERE reposts.blog_id = b.blog_id), 0) as repost_count " +
+                     "COALESCE((SELECT COUNT(*) FROM replies WHERE replies.blog_id = b.blog_id AND replies.parentReply IS NULL), 0) as comment_count, " +
+                     "COALESCE((SELECT COUNT(*) FROM reposts WHERE reposts.blog_Id = b.blog_id), 0) as repost_count " +
                      "FROM blogs b " +
                      "LEFT JOIN users u ON b.user_id = u.user_id " +
                      "ORDER BY b.blog_create_time DESC";

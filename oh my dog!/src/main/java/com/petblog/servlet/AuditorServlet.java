@@ -112,12 +112,15 @@ public class AuditorServlet extends HttpServlet {
                 }
 
                 // 调用登录验证
+                System.out.println("收到登录请求: name=" + name);
                 Auditor auditor = auditorService.login(name, password);
                 if (auditor != null) {
                     // 登录成功
+                    System.out.println("登录成功: auditor id=" + auditor.getId() + ", name=" + auditor.getName());
                     out.print(objectMapper.writeValueAsString(auditor));
                 } else {
                     // 登录失败
+                    System.out.println("登录失败: 未找到审核员或验证失败");
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     out.print("{\"error\":\"账号或密码错误\"}");
                 }

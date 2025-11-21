@@ -13,7 +13,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public Column findById(Integer columnId) {
-        String sql = "SELECT column_id, column_name, column_description, column_createdtime, user_id FROM columns WHERE column_id = ?";
+        String sql = "SELECT Column_id, Column_name, Column_description, Column_createdtime, user_id FROM columns WHERE Column_id = ?";
         try {
             return queryForObject(sql, this::mapRowToColumn, columnId);
         } catch (SQLException e) {
@@ -76,7 +76,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public int insert(Column column) {
-        String sql = "INSERT INTO columns (column_name, column_description, column_createdtime, user_id) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO columns (Column_name, Column_description, Column_createdtime, user_id) VALUES (?, ?, ?, ?)";
         try {
             return insert(sql, column.getColumnName(), column.getColumnDescription(),
                          column.getColumnCreatedtime(), column.getUserId());
@@ -87,7 +87,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public int update(Column column) {
-        String sql = "UPDATE columns SET column_name = ?, column_description = ? WHERE column_id = ?";
+        String sql = "UPDATE columns SET Column_name = ?, Column_description = ? WHERE Column_id = ?";
         try {
             return update(sql, column.getColumnName(), column.getColumnDescription(), column.getColumnId());
         } catch (SQLException e) {
@@ -97,7 +97,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public int incrementSubscribeCount(Integer columnId) {
-        String sql = "UPDATE columns SET subscribe_count = subscribe_count + 1 WHERE column_id = ?";
+        String sql = "UPDATE columns SET subscribe_count = subscribe_count + 1 WHERE Column_id = ?";
         try {
             return update(sql, columnId);
         } catch (SQLException e) {
@@ -107,7 +107,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public int decrementSubscribeCount(Integer columnId) {
-        String sql = "UPDATE columns SET subscribe_count = subscribe_count - 1 WHERE column_id = ? AND subscribe_count > 0";
+        String sql = "UPDATE columns SET subscribe_count = subscribe_count - 1 WHERE Column_id = ? AND subscribe_count > 0";
         try {
             return update(sql, columnId);
         } catch (SQLException e) {
@@ -117,7 +117,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public int delete(Integer columnId) {
-        String sql = "DELETE FROM columns WHERE column_id = ?";
+        String sql = "DELETE FROM columns WHERE Column_id = ?";
         try {
             return delete(sql, columnId);
         } catch (SQLException e) {
@@ -127,7 +127,7 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     @Override
     public boolean existsByName(String columnName) {
-        String sql = "SELECT COUNT(*) FROM columns WHERE column_name = ?";
+        String sql = "SELECT COUNT(*) FROM columns WHERE Column_name = ?";
         try {
             Number count = (Number) queryForSingleValue(sql, columnName);
             return count != null && count.intValue() > 0;
@@ -138,10 +138,10 @@ public class ColumnDAOImpl extends BaseJdbcDAO<Column> implements ColumnDAO {
 
     private Column mapRowToColumn(ResultSet rs) throws SQLException {
         Column column = new Column();
-        column.setColumnId(rs.getInt("column_id"));
-        column.setColumnName(rs.getString("column_name"));
-        column.setColumnDescription(rs.getString("column_description"));
-        column.setColumnCreatedtime(rs.getDate("column_createdtime"));
+        column.setColumnId(rs.getInt("Column_id"));
+        column.setColumnName(rs.getString("Column_name"));
+        column.setColumnDescription(rs.getString("Column_description"));
+        column.setColumnCreatedtime(rs.getDate("Column_createdtime"));
         column.setUserId(rs.getInt("user_id"));
         return column;
     }

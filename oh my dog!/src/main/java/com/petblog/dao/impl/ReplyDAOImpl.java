@@ -14,7 +14,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public Reply findById(Integer replyId) {
-        String sql = "SELECT user_id, blog_id, reply_id, parent_reply, reply_createdtime, reply_content, is_visible FROM replies WHERE reply_id = ?";
+        String sql = "SELECT user_id, blog_id, reply_id, parentReply, reply_createdtime, reply_content, is_visible FROM replies WHERE reply_id = ?";
         try {
             return queryForObject(sql, this::mapRowToReply, replyId);
         } catch (SQLException e) {
@@ -24,7 +24,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public List<Reply> findByCommentId(Integer commentId, int pageNum, int pageSize) {
-        String sql = "SELECT user_id, blog_id, reply_id, parent_reply, reply_createdtime, reply_content, is_visible FROM replies WHERE parent_reply = ? AND is_visible = 1 ORDER BY reply_createdtime ASC LIMIT ? OFFSET ?";
+        String sql = "SELECT user_id, blog_id, reply_id, parentReply, reply_createdtime, reply_content, is_visible FROM replies WHERE parentReply = ? AND is_visible = 1 ORDER BY reply_createdtime ASC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToReply, commentId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -34,7 +34,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public List<Reply> findByUserId(Integer userId, int pageNum, int pageSize) {
-        String sql = "SELECT user_id, blog_id, reply_id, parent_reply, reply_createdtime, reply_content, is_visible FROM replies WHERE user_id = ? ORDER BY reply_createdtime DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT user_id, blog_id, reply_id, parentReply, reply_createdtime, reply_content, is_visible FROM replies WHERE user_id = ? ORDER BY reply_createdtime DESC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToReply, userId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -44,7 +44,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public int countByCommentId(Integer commentId) {
-        String sql = "SELECT COUNT(*) FROM replies WHERE parent_reply = ?";
+        String sql = "SELECT COUNT(*) FROM replies WHERE parentReply = ?";
         try {
             Number count = (Number) queryForSingleValue(sql, commentId);
             return count != null ? count.intValue() : 0;
@@ -66,7 +66,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public int insert(Reply reply) {
-        String sql = "INSERT INTO replies (user_id, blog_id, parent_reply, reply_createdtime, reply_content, is_visible) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO replies (user_id, blog_id, parentReply, reply_createdtime, reply_content, is_visible) VALUES (?, ?, ?, ?, ?, ?)";
         try {
             return insert(sql, reply.getUserId(), reply.getBlogId(), reply.getParentReply(),
                          reply.getReplyCreatedtime(), reply.getReplyContent(), reply.getIsVisible());
@@ -107,7 +107,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public int deleteByCommentId(Integer commentId) {
-        String sql = "DELETE FROM replies WHERE parent_reply = ?";
+        String sql = "DELETE FROM replies WHERE parentReply = ?";
         try {
             return delete(sql, commentId);
         } catch (SQLException e) {
@@ -130,7 +130,7 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
         reply.setUserId(rs.getInt("user_id"));
         reply.setBlogId(rs.getInt("blog_id"));
         reply.setReplyId(rs.getInt("reply_id"));
-        reply.setParentReply(rs.getInt("parent_reply"));
+        reply.setParentReply(rs.getInt("parentReply"));
         reply.setReplyCreatedtime(rs.getDate("reply_createdtime"));
         reply.setReplyContent(rs.getString("reply_content"));
         reply.setIsVisible(rs.getInt("is_visible"));

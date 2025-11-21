@@ -499,7 +499,7 @@
     // 加载举报统计信息
     async function loadReportStats() {
         try {
-            const response = await fetch('/api/reports/stats');
+            const response = await fetch('/petblog/api/reports/stats');
             const result = await response.json();
             
             if (result.success) {
@@ -524,7 +524,7 @@
     }
 
     async function loadReports() {
-        const res = await fetch('/api/reports/all');
+        const res = await fetch('/petblog/api/reports/all');
         const data = await res.json();
         const pendingList = document.getElementById('report-list');
         const handledList = document.getElementById('handled-report-list');
@@ -648,7 +648,7 @@
     // 显示举报详情
     async function showReportDetail(reportId) {
         try {
-            const response = await fetch(`/api/reports/${reportId}/detail`);
+            const response = await fetch(`/petblog/api/reports/${reportId}/detail`);
             const result = await response.json();
             
             if (result.success) {
@@ -744,7 +744,7 @@
     // 从详情弹窗封禁用户
     function banUserFromDetail(userId, reportId) {
         if (!confirm('确定要封禁该用户吗？')) return;
-        fetch('/api/reports/banUser', {
+        fetch('/petblog/api/reports/banUser', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId, report_id: reportId })
@@ -764,7 +764,7 @@
     // 从详情弹窗封禁博客
     function banBlogFromDetail(blogId, reportId) {
         if (!confirm('确定要封禁该博客吗？')) return;
-        fetch('/api/reports/banBlog', {
+        fetch('/petblog/api/reports/banBlog', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ blog_id: blogId, report_id: reportId })
@@ -788,7 +788,7 @@
     // 从详情弹窗驳回举报
     function rejectReportFromDetail(reportId, userId) {
         const reason = prompt('请输入驳回理由（可选）：');
-        fetch('/api/reports/reject', {
+        fetch('/petblog/api/reports/reject', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ report_id: reportId, user_id: userId, reason })
@@ -806,7 +806,7 @@
 
     function banUser(userId, reportId) {
         if (!confirm('确定要封禁该用户吗？')) return;
-        fetch('/api/reports/banUser', {
+        fetch('/petblog/api/reports/banUser', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId, report_id: reportId })
@@ -822,7 +822,7 @@
     }
     function banBlog(blogId, reportId) {
         if (!confirm('确定要封禁该博客吗？')) return;
-        fetch('/api/reports/banBlog', {
+        fetch('/petblog/api/reports/banBlog', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ blog_id: blogId, report_id: reportId })
@@ -842,7 +842,7 @@
     }
     function rejectReport(reportId, userId) {
         const reason = prompt('请输入驳回理由（可选）：');
-        fetch('/api/reports/reject', {
+        fetch('/petblog/api/reports/reject', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ report_id: reportId, user_id: userId, reason })
@@ -913,3 +913,4 @@
         </div>
     </div>
 </body>
+</html> 

@@ -81,4 +81,10 @@ public interface ReportDAO {
      * @return 已举报返回true，否则返回false
      */
     boolean hasReported(Integer userId, Integer targetType, Integer targetId) throws SQLException;
+
+    /**
+     * 查询所有举报信息（不分页）
+     * @return 所有举报列表
+     */
+    List<Report> findAll() throws SQLException;
 }

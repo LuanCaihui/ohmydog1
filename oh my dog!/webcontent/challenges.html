@@ -1162,12 +1162,12 @@
 <body>
     <header>
         <nav>
-            <a href="/" class="logo">Oh my dog！</a>
+            <a href="/petblog/index.html" class="logo">Oh my dog！</a>
             <div class="nav-links">
-                <a href="/">首页</a>
-                <a href="/challenges.html" class="active">挑战</a>
+                <a href="/petblog/index.html">首页</a>
+                <a href="/petblog/challenges.html" class="active">挑战</a>
                 <a href="/petblog/profile.html">个人中心</a>
-                <a href="/logout">退出登录</a>
+                <a href="javascript:void(0)" onclick="logout()">退出登录</a>
             </div>
         </nav>
     </header>
@@ -2284,6 +2284,15 @@
                 closeChallengeBlogs();
             } else if (event.target === petRankingsModal) {
                 closePetRankings();
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentAuditor');
+                window.location.href = '/petblog/login.html';
             }
         }
     </script>

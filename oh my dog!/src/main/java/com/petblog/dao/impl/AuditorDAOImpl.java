@@ -14,9 +14,9 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public void insert(Auditor auditor) {
-        String sql = "INSERT INTO auditor (name, status) VALUES (?, ?)";
+        String sql = "INSERT INTO auditors (auditor_name, auditor_password) VALUES (?, ?)";
         try {
-            insert(sql, auditor.getName(), auditor.getStatus());
+            insert(sql, auditor.getAuditorName(), auditor.getAuditorPassword());
         } catch (SQLException e) {
             throw SQLExceptionHandler.handleSQLException(e, "插入审计员数据");
         }
@@ -24,9 +24,9 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public void update(Auditor auditor) {
-        String sql = "UPDATE auditor SET name = ?, status = ? WHERE id = ?";
+        String sql = "UPDATE auditors SET auditor_name = ?, auditor_password = ? WHERE auditor_id = ?";
         try {
-            update(sql, auditor.getName(), auditor.getStatus(), auditor.getId());
+            update(sql, auditor.getAuditorName(), auditor.getAuditorPassword(), auditor.getAuditorId());
         } catch (SQLException e) {
             throw SQLExceptionHandler.handleSQLException(e, "更新审计员数据");
         }
@@ -34,7 +34,7 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public void delete(int id) {
-        String sql = "DELETE FROM auditor WHERE id = ?";
+        String sql = "DELETE FROM auditors WHERE auditor_id = ?";
         try {
             delete(sql, id);
         } catch (SQLException e) {
@@ -44,7 +44,7 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public Auditor findById(int id) {
-        String sql = "SELECT id, name, status FROM auditor WHERE id = ?";
+        String sql = "SELECT auditor_id, auditor_name, auditor_password FROM auditors WHERE auditor_id = ?";
         try {
             return queryForObject(sql, this::mapRowToAuditor, id);
         } catch (SQLException e) {
@@ -54,17 +54,23 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public Auditor findByName(String name) {
-        String sql = "SELECT id, name, status FROM auditor WHERE name = ?";
+        String sql = "SELECT auditor_id, auditor_name, auditor_password FROM auditors WHERE TRIM(auditor_name) = TRIM(?)";
         try {
-            return queryForObject(sql, this::mapRowToAuditor, name);
+            String trimmedName = name != null ? name.trim() : "";
+            System.out.println("执行SQL查询: " + sql + ", 参数: name=" + trimmedName);
+            Auditor result = queryForObject(sql, this::mapRowToAuditor, trimmedName);
+            System.out.println("查询结果: " + (result != null ? "找到 id=" + result.getAuditorId() + ", name=" + result.getAuditorName() : "未找到"));
+            return result;
         } catch (SQLException e) {
+            System.err.println("查询审核员失败: " + e.getMessage());
+            e.printStackTrace();
             return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据名称查询审计员", null);
         }
     }
 
     @Override
     public List<Auditor> findAll() {
-        String sql = "SELECT id, name, status FROM auditor";
+        String sql = "SELECT auditor_id, auditor_name, auditor_password FROM auditors";
         try {
             return queryForList(sql, this::mapRowToAuditor);
         } catch (SQLException e) {
@@ -74,19 +80,16 @@ public class AuditorDAOImpl extends BaseJdbcDAO<Auditor> implements AuditorDAO {
 
     @Override
     public List<Auditor> findByStatus(String status) {
-        String sql = "SELECT id, name, status FROM auditor WHERE status = ?";
-        try {
-            return queryForList(sql, this::mapRowToAuditor, status);
-        } catch (SQLException e) {
-            return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据状态查询审计员", null);
-        }
+        // 注意：数据库中没有status字段，这个方法可能不适用
+        // 暂时返回所有审核员
+        return findAll();
     }
 
     private Auditor mapRowToAuditor(ResultSet rs) throws SQLException {
         Auditor auditor = new Auditor();
-        auditor.setId(rs.getInt("id"));
-        auditor.setName(rs.getString("name"));
-        auditor.setStatus(rs.getString("status"));
+        auditor.setAuditorId(rs.getInt("auditor_id"));
+        auditor.setAuditorName(rs.getString("auditor_name"));
+        auditor.setAuditorPassword(rs.getString("auditor_password"));
         return auditor;
     }
 }

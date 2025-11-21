@@ -124,4 +124,39 @@ public class ReportService extends BaseService {
             return false;
         }
     }
+
+    /**
+     * 获取所有举报信息
+     */
+    public List<Report> getAllReports() {
+        try {
+            return reportDAO.findAll();
+        } catch (SQLException e) {
+            SQLExceptionHandler.handleSQLException(e, "查询所有举报信息");
+            return null;
+        }
+    }
+
+    /**
+     * 获取举报统计信息
+     */
+    public java.util.Map<String, Integer> getReportStats() {
+        try {
+            int pending = reportDAO.countByStatus(0);
+            int handled = reportDAO.countByStatus(1) + reportDAO.countByStatus(2) + reportDAO.countByStatus(3);
+            int total = pending + handled;
+            java.util.Map<String, Integer> stats = new java.util.HashMap<>();
+            stats.put("pending", pending);
+            stats.put("handled", handled);
+            stats.put("total", total);
+            return stats;
+        } catch (SQLException e) {
+            SQLExceptionHandler.handleSQLException(e, "获取举报统计信息");
+            java.util.Map<String, Integer> stats = new java.util.HashMap<>();
+            stats.put("pending", 0);
+            stats.put("handled", 0);
+            stats.put("total", 0);
+            return stats;
+        }
+    }
 }
