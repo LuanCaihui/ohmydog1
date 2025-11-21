@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户主页 - Oh my dog！</title>
+    <style>
+        :root {
+            --primary-color: #4a9b8e;
+            --secondary-color: #6ab7aa;
+            --accent-color: #85c1b8;
+            --background-color: #f0f8f7;
+            --card-background: #ffffff;
+            --border-color: #e0e6e6;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --blue-accent: #5dade2;
+            --blue-light: #a8c8da;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--background-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--blue-accent) 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(74, 155, 142, 0.2);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            height: 60px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+            letter-spacing: 1px;
+        }
+
+        .nav-links {
+            display: flex;
+        }
+
+        .nav-links a {
+            margin-left: 24px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            border-radius: 20px;
+            padding: 8px 16px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .main-content {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .profile-header {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: none;
+            padding: 40px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .profile-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        }
+
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--accent-color);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: all 0.3s;
+        }
+
+        .profile-avatar:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .profile-info {
+            flex: 1;
+        }
+
+        .profile-name {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .profile-stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+
+
+        .content-section {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: none;
+            padding: 40px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .content-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .blog-card {
+            background: linear-gradient(135deg, #f0f8f7 0%, #e8f5e8 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .blog-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            cursor: pointer;
+            line-height: 1.3;
+        }
+
+        .blog-title:hover {
+            color: var(--secondary-color);
+        }
+
+        .blog-content {
+            color: var(--text-primary);
+            line-height: 1.7;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .blog-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .blog-stats {
+            display: flex;
+            gap: 15px;
+        }
+
+        .blog-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+            background: linear-gradient(135deg, #f0f8f7 0%, #e8f5e8 100%);
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        .empty-state img {
+            width: 120px;
+            opacity: 0.5;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            background: linear-gradient(135deg, #f0f8f7 0%, #e8f5e8 100%);
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* 博客统计样式 */
+        .blog-stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .blog-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .blog-stat span:first-child {
+            font-size: 16px;
+        }
+
+        /* 关注按钮样式优化 */
+        .follow-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-left: auto;
+            box-shadow: 0 4px 16px rgba(74, 155, 142, 0.3);
+        }
+
+        .follow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 155, 142, 0.4);
+        }
+
+        .follow-btn.followed {
+            background: linear-gradient(135deg, var(--text-secondary), #95a5a6);
+            box-shadow: 0 4px 16px rgba(127, 140, 141, 0.3);
+        }
+
+        .pets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .pet-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pet-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        }
+
+        .pet-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+        }
+
+        .pet-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 20px;
+            border: 4px solid var(--accent-color);
+            transition: all 0.3s;
+        }
+
+        .pet-avatar:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .pet-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .pet-info {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        @media (max-width: 768px) {
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 30px 20px;
+            }
+
+            .profile-stats {
+                justify-content: center;
+            }
+
+            .main-content {
+                padding: 0 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="nav-container">
+            <a href="/" class="logo">Oh my dog！</a>
+            <div class="nav-links">
+                <a href="/">首页</a>
+                <a href="/petblog/profile.html">个人中心</a>
+                <a href="/logout">退出登录</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <div class="profile-header">
+            <img id="userAvatar" class="profile-avatar" src="/images/Default avatar.png" alt="用户头像">
+            <div class="profile-info">
+                <div id="userName" class="profile-name">加载中...</div>
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div id="blogCount" class="stat-number">0</div>
+                        <div class="stat-label">博客</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="followersCount" class="stat-number">0</div>
+                        <div class="stat-label">粉丝</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="followingCount" class="stat-number">0</div>
+                        <div class="stat-label">关注</div>
+                    </div>
+                    <div class="stat-item">
+                        <div id="petsCount" class="stat-number">0</div>
+                        <div class="stat-label">狗狗</div>
+                    </div>
+                </div>
+            </div>
+            <button id="followBtn" class="follow-btn" style="display: none;">关注</button>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">TA的狗狗</h2>
+            <div id="petsContainer" class="pets-grid">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <div class="content-section" style="margin-top: 30px;">
+            <h2 class="section-title">TA的博客</h2>
+            <div id="blogsContainer">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let profileUserId = null;
+
+        // 从URL获取用户ID
+        function getUserIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('id');
+        }
+
+        // 获取当前登录用户信息
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/petblog/api/user/profile');
+                if (response.ok) {
+                    currentUser = await response.json();
+                }
+            } catch (error) {
+                console.error('获取当前用户信息失败:', error);
+            }
+        }
+
+        // 加载用户信息
+        async function loadUserProfile() {
+            profileUserId = getUserIdFromUrl();
+            if (!profileUserId) {
+                alert('用户ID无效');
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/petblog/api/user/profile/${profileUserId}`);
+                if (!response.ok) {
+                    throw new Error('用户不存在');
+                }
+                
+                const userData = await response.json();
+                
+                // 更新页面信息
+                document.getElementById('userName').textContent = userData.user_name;
+                document.getElementById('userAvatar').src = userData.user_avatar_path || '/images/Default avatar.png';
+                document.getElementById('blogCount').textContent = userData.blog_count || 0;
+                document.getElementById('followersCount').textContent = userData.followers_count || 0;
+                document.getElementById('followingCount').textContent = userData.following_count || 0;
+                document.getElementById('petsCount').textContent = userData.pet_count || 0;
+
+                // 显示关注按钮（如果不是自己的主页）
+                if (currentUser && currentUser.user_id != profileUserId) {
+                    const followBtn = document.getElementById('followBtn');
+                    followBtn.style.display = 'block';
+                    followBtn.textContent = userData.is_followed ? '已关注' : '关注';
+                    followBtn.className = userData.is_followed ? 'follow-btn followed' : 'follow-btn';
+                    followBtn.onclick = () => toggleFollow(profileUserId);
+                }
+
+            } catch (error) {
+                console.error('加载用户信息失败:', error);
+                alert('用户不存在或加载失败');
+                window.location.href = '/';
+            }
+        }
+
+        // 加载用户宠物
+        async function loadUserPets() {
+            try {
+                const response = await fetch(`/petblog/api/user/${profileUserId}/pets`);
+                const pets = await response.json();
+                const container = document.getElementById('petsContainer');
+
+                if (!pets.length) {
+                    container.innerHTML = '<div class="empty-state">暂无狗狗信息</div>';
+                    return;
+                }
+
+                container.innerHTML = pets.map(pet => `
+                    <div class="pet-card">
+                        <img class="pet-avatar" src="${pet.pet_avatar_path || '/images/pet-avatar.png'}" alt="${pet.pet_name}">
+                        <div class="pet-name">${pet.pet_name}</div>
+                        <div class="pet-info">${pet.pet_breed} · ${pet.pet_gender}</div>
+                        <div class="pet-info">${new Date(pet.pet_birthdate).toLocaleDateString()}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载宠物信息失败:', error);
+                document.getElementById('petsContainer').innerHTML = '<div class="empty-state">加载失败</div>';
+            }
+        }
+
+        // 加载用户博客
+        async function loadUserBlogs() {
+            try {
+                const response = await fetch(`/petblog/api/user/${profileUserId}/blogs`);
+                const blogs = await response.json();
+                const container = document.getElementById('blogsContainer');
+
+                if (!blogs.length) {
+                    container.innerHTML = '<div class="empty-state">暂无博客</div>';
+                    return;
+                }
+
+                container.innerHTML = blogs.map(blog => `
+                    <div class="blog-card">
+                        <div class="blog-title" onclick="viewBlogDetail(${blog.blog_id})">${blog.blog_title}</div>
+                        <div class="blog-content">${blog.blog_content.substring(0, 150)}${blog.blog_content.length > 150 ? '...' : ''}</div>
+                        <div class="blog-meta">
+                            <span>${new Date(blog.blog_create_time).toLocaleDateString()}</span>
+                            <div class="blog-stats">
+                                <div class="blog-stat">
+                                    <span>👍</span>
+                                    <span>${blog.like_count || 0}</span>
+                                </div>
+                                <div class="blog-stat">
+                                    <span>💬</span>
+                                    <span>${blog.comment_count || 0}</span>
+                                </div>
+                                <div class="blog-stat">
+                                    <span>⭐</span>
+                                    <span>${blog.favorite_count || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载博客失败:', error);
+                document.getElementById('blogsContainer').innerHTML = '<div class="empty-state">加载失败</div>';
+            }
+        }
+
+        // 切换关注状态
+        async function toggleFollow(userId) {
+            if (!currentUser) {
+                alert('请先登录');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/follows/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ followee_id: userId })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const followBtn = document.getElementById('followBtn');
+                    const followersCount = document.getElementById('followersCount');
+
+                    if (result.followed) {
+                        followBtn.textContent = '已关注';
+                        followBtn.className = 'follow-btn followed';
+                        followersCount.textContent = parseInt(followersCount.textContent) + 1;
+                    } else {
+                        followBtn.textContent = '关注';
+                        followBtn.className = 'follow-btn';
+                        followersCount.textContent = parseInt(followersCount.textContent) - 1;
+                    }
+                } else {
+                    alert(result.message || '操作失败');
+                }
+            } catch (error) {
+                console.error('关注操作失败:', error);
+                alert('网络错误，请重试');
+            }
+        }
+
+        // 查看博客详情
+        function viewBlogDetail(blogId) {
+            window.location.href = `/blog-detail.html?id=${blogId}`;
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadCurrentUser();
+            await loadUserProfile();
+            loadUserPets();
+            loadUserBlogs();
+        });
+    </script>
+</body>
+</html>

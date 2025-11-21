@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    注意：此文件已不再使用！
+    
+    本项目采用"禁用框架"的开发方式，不使用JPA/Hibernate等ORM框架。
+    数据库连接配置已迁移到：src/main/resources/db.properties
+    数据库操作使用纯JDBC + HikariCP连接池实现。
+    
+    如需修改数据库连接信息，请编辑 db.properties 文件。
+    
+    此文件保留仅用于历史参考，可以安全删除。
+-->

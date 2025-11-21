@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专栏详情 - Oh my dog!</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #1abc9c;
+            --background-color: #ecf0f1;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-color: #bdc3c7;
+            --card-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: var(--card-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--secondary-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .column-header {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .column-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        }
+
+        .column-info {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .author-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .column-details h1 {
+            font-size: 2rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .column-author {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .column-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .column-description {
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        .blogs-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .blog-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .blog-item {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .blog-item:hover {
+            border-color: var(--secondary-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .blog-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .blog-excerpt {
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .blog-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .blog-date {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .blog-stats {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 2rem 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem;
+        }
+
+        .back-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            transition: background 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: #2980b9;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .column-info {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+            }
+            
+            .column-stats {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .nav {
+                padding: 0 1rem;
+            }
+            
+            .nav-links {
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <nav class="nav">
+            <a href="/" class="logo">🐕 Oh my dog!</a>
+            <ul class="nav-links">
+                <li><a href="/">首页</a></li>
+                <li><a href="/columns.html">专栏</a></li>
+                <li><a href="/petblog/profile.html">个人中心</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+        <a href="/columns.html" class="back-btn">
+            ← 返回专栏列表
+        </a>
+        
+        <div id="columnHeader" class="column-header" style="display: none;">
+            <!-- 专栏信息将通过JavaScript动态生成 -->
+        </div>
+        
+        <div id="blogsSection" class="blogs-section" style="display: none;">
+            <h2 class="section-title">
+                📝 专栏文章
+            </h2>
+            <div id="blogList" class="blog-list">
+                <!-- 博客列表将通过JavaScript动态生成 -->
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            正在加载专栏信息...
+        </div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>专栏不存在</h3>
+            <p>该专栏可能已被删除或不存在</p>
+        </div>
+    </div>
+
+    <script>
+        // 获取URL参数
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+        
+        // 加载专栏详情
+        async function loadColumnDetail() {
+            const columnId = getUrlParameter('id');
+            if (!columnId) {
+                showEmptyState();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/columns/${columnId}`);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showEmptyState();
+                    return;
+                }
+                
+                const { column, blogs } = result;
+                
+                // 显示专栏信息
+                displayColumnInfo(column);
+                
+                // 显示博客列表
+                displayBlogs(blogs);
+                
+                document.getElementById('loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error('加载专栏详情失败:', error);
+                showEmptyState();
+            }
+        }
+        
+        // 显示专栏信息
+        function displayColumnInfo(column) {
+            const columnHeader = document.getElementById('columnHeader');
+            columnHeader.innerHTML = `
+                <div class="column-info">
+                    <img src="${column.user_avatar_path || '/images/Default avatar.png'}" 
+                         alt="${column.user_name}" class="author-avatar">
+                    <div class="column-details">
+                        <h1>${column.Column_name}</h1>
+                        <div class="column-author">by ${column.user_name}</div>
+                        <div class="column-stats">
+                            <div class="stat-item">
+                                <span>📝</span>
+                                <span>${column.blog_count || 0} 篇文章</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span>
+                                <span>创建于 ${formatDate(column.Column_createdtime)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${column.Column_description ? `
+                    <div class="column-description">
+                        ${column.Column_description}
+                    </div>
+                ` : ''}
+            `;
+            columnHeader.style.display = 'block';
+        }
+        
+        // 显示博客列表
+        function displayBlogs(blogs) {
+            const blogsSection = document.getElementById('blogsSection');
+            const blogList = document.getElementById('blogList');
+            
+            if (blogs.length === 0) {
+                blogList.innerHTML = '<div class="empty-state"><p>该专栏暂无文章</p></div>';
+            } else {
+                blogList.innerHTML = '';
+                blogs.forEach(blog => {
+                    const blogItem = createBlogItem(blog);
+                    blogList.appendChild(blogItem);
+                });
+            }
+            
+            blogsSection.style.display = 'block';
+        }
+        
+        // 创建博客项目
+        function createBlogItem(blog) {
+            const item = document.createElement('div');
+            item.className = 'blog-item';
+            item.onclick = () => {
+                window.location.href = `/blog-detail.html?id=${blog.blog_id}`;
+            };
+            
+            item.innerHTML = `
+                <div class="blog-title">${blog.blog_title}</div>
+                <div class="blog-excerpt">${truncateText(blog.blog_content, 150)}</div>
+                <div class="blog-meta">
+                    <div class="blog-date">
+                        <span>📅</span>
+                        <span>${formatDate(blog.blog_create_time)}</span>
+                    </div>
+                    <div class="blog-stats">
+                        <span>👍 ${blog.like_count || 0}</span>
+                        <span>💬 ${blog.comment_count || 0}</span>
+                    </div>
+                </div>
+            `;
+            
+            return item;
+        }
+        
+        // 截取文本
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        }
+        
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+        
+        // 显示空状态
+        function showEmptyState() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            loadColumnDetail();
+        });
+    </script>
+</body>
+</html>

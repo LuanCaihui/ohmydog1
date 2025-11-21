@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专栏列表 - Oh my dog!</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #1abc9c;
+            --background-color: #ecf0f1;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-color: #bdc3c7;
+            --card-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: var(--card-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--secondary-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-title {
+            text-align: center;
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .columns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .column-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .column-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+        }
+
+        .column-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .column-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .column-info h3 {
+            color: var(--text-primary);
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .column-author {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .column-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .column-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .stat-icon {
+            font-size: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+            margin: 3rem 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: white;
+            padding: 3rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+            
+            .columns-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .page-title {
+                font-size: 2rem;
+            }
+            
+            .nav {
+                padding: 0 1rem;
+            }
+            
+            .nav-links {
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <nav class="nav">
+            <a href="/" class="logo">🐕 Oh my dog!</a>
+            <ul class="nav-links">
+                <li><a href="/">首页</a></li>
+                <li><a href="/columns.html">专栏</a></li>
+                <li><a href="/petblog/profile.html">个人中心</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">📚 专栏列表</h1>
+        
+        <div id="loading" class="loading">
+            正在加载专栏列表...
+        </div>
+        
+        <div id="columnsGrid" class="columns-grid" style="display: none;">
+            <!-- 专栏卡片将通过JavaScript动态生成 -->
+        </div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>暂无专栏</h3>
+            <p>还没有用户创建专栏，快去创建第一个专栏吧！</p>
+        </div>
+    </div>
+
+    <script>
+        // 加载所有专栏
+        async function loadColumns() {
+            try {
+                const response = await fetch('/api/columns/all');
+                const columns = await response.json();
+                
+                const loading = document.getElementById('loading');
+                const columnsGrid = document.getElementById('columnsGrid');
+                const emptyState = document.getElementById('emptyState');
+                
+                loading.style.display = 'none';
+                
+                if (columns.length === 0) {
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                columnsGrid.style.display = 'grid';
+                columnsGrid.innerHTML = '';
+                
+                columns.forEach(column => {
+                    const columnCard = createColumnCard(column);
+                    columnsGrid.appendChild(columnCard);
+                });
+                
+            } catch (error) {
+                console.error('加载专栏失败:', error);
+                document.getElementById('loading').textContent = '加载失败，请刷新重试';
+            }
+        }
+        
+        // 创建专栏卡片
+        function createColumnCard(column) {
+            const card = document.createElement('div');
+            card.className = 'column-card';
+            card.onclick = () => {
+                window.location.href = `/column-detail.html?id=${column.Column_id}`;
+            };
+            
+            card.innerHTML = `
+                <div class="column-header">
+                    <img src="${column.user_avatar_path || '/images/Default avatar.png'}" 
+                         alt="${column.user_name}" class="column-avatar">
+                    <div class="column-info">
+                        <h3>${column.Column_name}</h3>
+                        <div class="column-author">by ${column.user_name}</div>
+                    </div>
+                </div>
+                <div class="column-description">
+                    ${column.Column_description || '暂无描述'}
+                </div>
+                <div class="column-stats">
+                    <div class="stat-item">
+                        <span class="stat-icon">📝</span>
+                        <span>${column.blog_count || 0} 篇博客</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-icon">📅</span>
+                        <span>${formatDate(column.Column_createdtime)}</span>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days === 0) {
+                return '今天';
+            } else if (days === 1) {
+                return '昨天';
+            } else if (days < 7) {
+                return `${days}天前`;
+            } else {
+                return date.toLocaleDateString('zh-CN');
+            }
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            loadColumns();
+        });
+    </script>
+</body>
+</html>

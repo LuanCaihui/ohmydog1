@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oh my dog！ - 挑战</title>
+    <style>
+        :root {
+            --primary-color: #3d8b7e;
+            --secondary-color: #5ba898;
+            --accent-color: #7bc5b7;
+            --blue-accent: #8bb8d4;
+            --background-color: #edf6f5;
+            --card-background: #ffffff;
+            --text-color: #2c3e50;
+            --border-color: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/petblog/images/challenge.png') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--blue-accent) 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--accent-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(74, 155, 142, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--blue-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            animation: titleGlow 3s ease-in-out infinite alternate;
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-color);
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            animation: subtitleFloat 4s ease-in-out infinite;
+        }
+
+        .challenge-info {
+            background: linear-gradient(135deg, rgba(74, 155, 142, 0.1) 0%, rgba(139, 184, 212, 0.1) 100%);
+            padding: 0.6rem 1rem;
+            border-radius: 15px;
+            border: 2px solid rgba(74, 155, 142, 0.2);
+            margin-top: 0.8rem;
+            animation: infoPulse 5s ease-in-out infinite;
+        }
+
+        .challenge-info-text {
+            color: var(--primary-color);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* 动画效果 */
+        @keyframes titleGlow {
+            0% {
+                filter: drop-shadow(0 0 5px rgba(74, 155, 142, 0.3));
+            }
+            100% {
+                filter: drop-shadow(0 0 15px rgba(74, 155, 142, 0.6));
+            }
+        }
+
+        @keyframes subtitleFloat {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+
+        @keyframes infoPulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(74, 155, 142, 0.1);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 6px 20px rgba(74, 155, 142, 0.2);
+            }
+        }
+
+        .create-challenge-btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.8rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 0.8rem;
+            box-shadow: 0 4px 15px rgba(61, 139, 126, 0.3);
+            position: relative;
+            overflow: hidden;
+            animation: buttonShine 4s ease-in-out infinite;
+        }
+
+        .create-challenge-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .create-challenge-btn:hover::before {
+            left: 100%;
+        }
+
+        .create-challenge-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(61, 139, 126, 0.4);
+        }
+
+        .create-challenge-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes buttonShine {
+            0%, 100% {
+                box-shadow: 0 4px 15px rgba(61, 139, 126, 0.3);
+            }
+            50% {
+                box-shadow: 0 6px 20px rgba(61, 139, 126, 0.5);
+            }
+        }
+
+        .challenges-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .challenge-card {
+            background: var(--card-background);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .challenge-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .challenge-status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .status-planning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-ongoing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-ended {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .challenge-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .challenge-description {
+            color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .challenge-time {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 1rem;
+        }
+
+        .challenge-author {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .challenge-heat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+        }
+
+        .heat-icon {
+            font-size: 1.1rem;
+        }
+
+        .heat-value {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #fff !important;
+            text-shadow: none !important;
+            letter-spacing: 1px;
+        }
+
+        .challenge-heat {
+            position: relative;
+            cursor: help;
+        }
+
+        .heat-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+
+        .heat-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+        }
+
+        .challenge-heat:hover .heat-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .challenge-winner {
+            background: linear-gradient(135deg, #fff9e6, #ffffff);
+            border: 1px solid #ffd700;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .winner-info-compact {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .winner-avatar-small {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffd700;
+        }
+
+        .winner-text {
+            color: #b8860b;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .author-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .participate-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .participate-btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .participate-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(61, 139, 126, 0.4);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        /* 宠物选择样式 */
+        .pet-tag {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 5px;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .pet-tag:hover {
+            border-color: var(--accent-color);
+            background: #f0f8f7;
+        }
+
+        .pet-tag.selected {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pet-tag img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        /* 博客卡片样式 */
+        .blog-card {
+            background: var(--card-background);
+            border-radius: 10px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .blog-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .blog-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .blog-author-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .blog-author-info {
+            flex: 1;
+        }
+
+        .blog-author-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 2px;
+        }
+
+        .blog-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .blog-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 8px;
+        }
+
+        .blog-content {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            max-height: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .blog-pets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .blog-pet-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            background: var(--background-color);
+            border-radius: 15px;
+            font-size: 0.8rem;
+            color: var(--primary-color);
+        }
+
+        .blog-pet-avatar {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .blog-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .vote-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .vote-btn {
+            background: none;
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .vote-btn:hover {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .vote-btn.voted {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .vote-count {
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        /* 狗狗排名样式 */
+        .pet-ranking-card {
+            background: var(--card-background);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+
+        .pet-ranking-card.winner {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, #fff9e6, #ffffff);
+        }
+
+        .pet-ranking-card.second {
+            border-color: #c0c0c0;
+            background: linear-gradient(135deg, #f8f8f8, #ffffff);
+        }
+
+        .pet-ranking-card.third {
+            border-color: #cd7f32;
+            background: linear-gradient(135deg, #fdf6f0, #ffffff);
+        }
+
+        .ranking-badge {
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .ranking-badge.first {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #b8860b;
+        }
+
+        .ranking-badge.second {
+            background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+            color: #666;
+        }
+
+        .ranking-badge.third {
+            background: linear-gradient(135deg, #cd7f32, #deb887);
+            color: #8b4513;
+        }
+
+        .ranking-badge.other {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .pet-ranking-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .pet-ranking-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-color);
+        }
+
+        .pet-ranking-info {
+            flex: 1;
+        }
+
+        .pet-ranking-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .pet-ranking-breed {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .pet-ranking-owner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #888;
+            font-size: 0.8rem;
+        }
+
+        .owner-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .pet-ranking-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--background-color);
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .winner-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .winner-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffd700;
+        }
+
+        .winner-info {
+            flex: 1;
+        }
+
+        .winner-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #b8860b;
+            margin-bottom: 3px;
+        }
+
+        .winner-votes {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 2.2rem;
+            }
+            
+            .page-subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .challenge-info-text {
+                font-size: 0.85rem;
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .page-header {
+                padding: 1.2rem;
+                margin-bottom: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-title {
+                font-size: 1.8rem;
+            }
+            
+            .page-subtitle {
+                font-size: 1.1rem;
+            }
+            
+            .challenge-info-text {
+                font-size: 0.8rem;
+            }
+            
+            .page-header {
+                padding: 1rem;
+            }
+        }
+
+        .remove-challenge-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+        }
+
+        .remove-challenge-btn:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+        }
+
+        .remove-challenge-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 博客热度样式 */
+        .blog-heat-section {
+            margin: 15px 0;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fff5f5 0%, #f0f8ff 100%);
+            border-radius: 12px;
+            border: 1px solid #e8f4fd;
+        }
+
+        .blog-heat-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .heat-icon {
+            font-size: 16px;
+            color: #ff6b35;
+        }
+
+        .heat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .heat-value {
+            font-weight: bold;
+            color: #ff6b35;
+            font-size: 16px;
+        }
+
+        .heat-details-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            color: #666;
+        }
+
+        .heat-details-btn:hover {
+            background: rgba(255, 107, 53, 0.1);
+            color: #ff6b35;
+            transform: scale(1.1);
+        }
+
+        /* 热度详情模态框样式 */
+        .heat-details-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .heat-details-content {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease;
+        }
+
+        .heat-details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 24px 16px 24px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .heat-details-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 4px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .heat-details-body {
+            padding: 24px;
+        }
+
+        .total-heat {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: linear-gradient(135deg, #fff5f5 0%, #f0f8ff 100%);
+            border-radius: 12px;
+            border: 2px solid #e8f4fd;
+        }
+
+        .total-heat-label {
+            font-size: 16px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .total-heat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-left: 8px;
+        }
+
+        .heat-breakdown {
+            margin-bottom: 24px;
+        }
+
+        .heat-breakdown h4 {
+            margin: 0 0 16px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .heat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .heat-item:last-child {
+            border-bottom: none;
+        }
+
+        .heat-item-label {
+            font-weight: 500;
+            color: #333;
+            flex: 1;
+        }
+
+        .heat-item-value {
+            font-weight: bold;
+            color: #ff6b35;
+            margin: 0 16px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .heat-item-calculation {
+            color: #666;
+            font-size: 12px;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        .heat-formula {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #ff6b35;
+        }
+
+        .heat-formula h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .heat-formula p {
+            margin: 0;
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .heat-details-content {
+                width: 95%;
+                margin: 20px;
+            }
+
+            .heat-details-header,
+            .heat-details-body {
+                padding: 16px;
+            }
+
+            .heat-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .heat-item-value,
+            .heat-item-calculation {
+                margin: 0;
+                align-self: flex-end;
+            }
+        }
+
+        .challenge-heat .heat-value {
+            color: #fff !important;
+        }
+
+        .blog-heat-display .heat-value {
+            color: #000 !important;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">Oh my dog！</a>
+            <div class="nav-links">
+                <a href="/">首页</a>
+                <a href="/challenges.html" class="active">挑战</a>
+                <a href="/petblog/profile.html">个人中心</a>
+                <a href="/logout">退出登录</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">🐕 狗狗挑战 🐕</h1>
+            <p class="page-subtitle">参与有趣的挑战，展示您的狗狗才能</p>
+            <button class="create-challenge-btn" onclick="openCreateModal()">
+                🎯 发起挑战
+            </button>
+
+            <div class="challenge-info">
+                <div class="challenge-info-text">
+                    <span style="font-size: 1.2rem;">💡</span>
+                    <span>挑战按热度排序显示，热度越高排名越靠前</span>
+                    <span style="font-size: 1.2rem;">🔥</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="challengesContainer" class="challenges-grid">
+            <!-- 挑战卡片将在这里动态加载 -->
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>暂无挑战</h3>
+            <p>成为第一个发起挑战的人吧！</p>
+        </div>
+    </div>
+
+    <!-- 创建挑战模态框 -->
+    <div id="createChallengeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">发起新挑战</h2>
+                <span class="close" onclick="closeCreateModal()">&times;</span>
+            </div>
+            <form id="createChallengeForm">
+                <div class="form-group">
+                    <label for="challengeTitle">挑战标题 *</label>
+                    <input type="text" id="challengeTitle" name="title" required maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="challengeDescription">挑战描述</label>
+                    <textarea id="challengeDescription" name="description" maxlength="255" placeholder="描述挑战的规则和要求..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="startTime">开始时间 *</label>
+                    <input type="datetime-local" id="startTime" name="start_time" required>
+                </div>
+                <div class="form-group">
+                    <label for="endTime">结束时间 *</label>
+                    <input type="datetime-local" id="endTime" name="end_time" required>
+                </div>
+                <button type="submit" class="submit-btn">发起挑战</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 参与挑战模态框 -->
+    <div id="participateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">参与挑战 - 发布博客</h2>
+                <span class="close" onclick="closeParticipateModal()">&times;</span>
+            </div>
+
+            <!-- 挑战信息显示 -->
+            <div id="participateChallengeInfo" style="padding: 15px; background: #f0f8f7; border-radius: 8px; border: 1px solid var(--accent-color); margin-bottom: 20px;">
+                <div id="participateChallengeTitle" style="font-weight: 600; color: var(--primary-color); margin-bottom: 5px;"></div>
+                <div id="participateChallengeDescription" style="color: #666; font-size: 0.9rem; margin-bottom: 5px;"></div>
+                <div id="participateChallengeTime" style="color: #888; font-size: 0.8rem;"></div>
+                <div style="margin-top: 10px; color: #e74c3c; font-size: 0.9rem; font-weight: 500;">
+                    ⚠️ 参与挑战必须选择至少一只狗狗
+                </div>
+            </div>
+
+            <form id="participateBlogForm" enctype="multipart/form-data">
+                <input type="hidden" id="participateChallengeId" name="challenge_id">
+
+                <div class="form-group">
+                    <label for="participateBlogTitle">博客标题 *</label>
+                    <input type="text" id="participateBlogTitle" name="blog_title" required maxlength="100" placeholder="请输入博客标题">
+                </div>
+
+                <div class="form-group">
+                    <label for="participateBlogContent">博客内容 *</label>
+                    <textarea id="participateBlogContent" name="blog_content" required placeholder="分享您的想法..." style="min-height: 120px;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="participateColumnId">选择专栏（可选）</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select id="participateColumnId" name="column_id" style="flex: 1; padding: 0.8rem; border: 2px solid var(--border-color); border-radius: 8px;">
+                            <option value="">不选择专栏</option>
+                        </select>
+                        <button type="button" id="participateQuickCreateColumn" style="padding: 8px 12px; background: var(--accent-color); color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">新建</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择参赛狗狗 *</label>
+                    <div id="participatePetSelection" style="margin-top: 10px;">
+                        <div style="color: #666; text-align: center; padding: 10px;">正在加载狗狗列表...</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="participateFiles">附件（可选）</label>
+                    <input type="file" id="participateFiles" name="files" multiple accept="*/*">
+                    <div style="font-size: 12px; color: #666; margin-top: 4px;">最多5个文件，每个不超过10MB</div>
+                </div>
+
+                <button type="submit" class="submit-btn">发布博客参与挑战</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 查看挑战作品模态框 -->
+    <div id="challengeBlogsModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">挑战作品</h2>
+                <span class="close" onclick="closeChallengeBlogs()">&times;</span>
+            </div>
+
+            <div id="challengeBlogsInfo" style="padding: 15px; background: #f0f8f7; border-radius: 8px; border: 1px solid var(--accent-color); margin-bottom: 20px;">
+                <div id="challengeBlogsTitle" style="font-weight: 600; color: var(--primary-color); margin-bottom: 5px;"></div>
+                <div id="challengeBlogsDescription" style="color: #666; font-size: 0.9rem;"></div>
+            </div>
+
+            <div id="challengeBlogsList">
+                <div style="color: #666; text-align: center; padding: 20px;">正在加载作品...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 狗狗排名模态框 -->
+    <div id="petRankingsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 class="modal-title">🏆 狗狗投票排名</h2>
+                <span class="close" onclick="closePetRankings()">&times;</span>
+            </div>
+
+            <div id="rankingsInfo" style="padding: 15px; background: #f0f8f7; border-radius: 8px; border: 1px solid var(--accent-color); margin-bottom: 20px;">
+                <div id="rankingsTitle" style="font-weight: 600; color: var(--primary-color); margin-bottom: 5px;"></div>
+                <div id="rankingsDescription" style="color: #666; font-size: 0.9rem; margin-bottom: 10px;"></div>
+                <div id="challengeStatus" style="color: #888; font-size: 0.9rem;"></div>
+            </div>
+
+            <div id="winnersSection" style="display: none; margin-bottom: 20px;">
+                <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #ffd700, #ffed4e); border-radius: 15px; margin-bottom: 20px;">
+                    <h3 style="color: #b8860b; margin-bottom: 10px;">🎉 获胜狗狗 🎉</h3>
+                    <div id="winnersList"></div>
+                </div>
+            </div>
+
+            <div id="petRankingsList">
+                <div style="color: #666; text-align: center; padding: 20px;">正在加载排名...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载时获取挑战列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadChallenges();
+
+            // 快速创建专栏功能
+            document.getElementById('participateQuickCreateColumn').addEventListener('click', function() {
+                const columnName = prompt('请输入专栏名称:');
+                if (columnName && columnName.trim()) {
+                    createQuickColumnForParticipate(columnName.trim());
+                }
+            });
+        });
+
+        // 获取当前用户ID
+        let currentUserId = null;
+
+        // 获取当前用户信息
+        async function getCurrentUser() {
+            try {
+                // 从 sessionStorage 获取当前用户ID
+                const currentUserStr = sessionStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    try {
+                        const currentUser = JSON.parse(currentUserStr);
+                        currentUserId = currentUser.userId;
+                        console.log('当前用户ID:', currentUserId);
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                    }
+                } else {
+                    console.log('未找到用户信息，请先登录');
+                }
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+            }
+        }
+
+        // 加载挑战列表
+        async function loadChallenges() {
+            try {
+                // 先获取当前用户信息
+                await getCurrentUser();
+                
+                const response = await fetch('/petblog/api/challenges');
+                const challenges = await response.json();
+                console.log('获取到的挑战列表:', challenges);
+                
+                const container = document.getElementById('challengesContainer');
+                const emptyState = document.getElementById('emptyState');
+                
+                if (challenges.length === 0) {
+                    container.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                container.style.display = 'grid';
+                emptyState.style.display = 'none';
+                
+                container.innerHTML = challenges.map(challenge => createChallengeCard(challenge)).join('');
+            } catch (error) {
+                console.error('加载挑战失败:', error);
+            }
+        }
+
+        // 创建挑战卡片
+        function createChallengeCard(challenge) {
+            const status = getChallengeStatus(challenge.challenge_start_time, challenge.challenge_end_time);
+            const statusClass = `status-${status.type}`;
+            // 确保类型一致，都转换为数字进行比较
+            const isCreator = currentUserId && parseInt(challenge.uer_id) === parseInt(currentUserId);
+            // 修改删除条件：发起者可以删除任何状态的挑战（只要没有博客参与）
+            const canDelete = isCreator;
+
+            // 调试信息
+            console.log('挑战卡片调试信息:', {
+                challengeId: challenge.challenge_id,
+                challengeTitle: challenge.challenge_title,
+                currentUserId: currentUserId,
+                currentUserIdType: typeof currentUserId,
+                challengeUserId: challenge.uer_id,
+                challengeUserIdType: typeof challenge.uer_id,
+                isCreator: isCreator,
+                status: status,
+                canDelete: canDelete
+            });
+
+            return `
+                <div class="challenge-card">
+                    <div class="challenge-status ${statusClass}">${status.text}</div>
+                    <div class="challenge-heat">
+                        <span class="heat-icon">🔥</span>
+                        <span>热度：</span>
+                        <span class="heat-value" id="heat_${challenge.challenge_id}">${formatHeat(challenge.heat || 0)}</span>
+                        <div class="heat-tooltip">
+                            热度 = 博客数×50 + 投票数×50 + 点赞数×20 + 收藏数×20 + 评论数×10 + 转发数×10
+                        </div>
+                    </div>
+                    <h3 class="challenge-title">${challenge.challenge_title}</h3>
+                    <p class="challenge-description">${challenge.challenge_description || '暂无描述'}</p>
+                    <div class="challenge-time">
+                        开始：${formatDateTime(challenge.challenge_start_time)}<br>
+                        结束：${formatDateTime(challenge.challenge_end_time)}
+                    </div>
+                    <div class="challenge-author">
+                        <img src="${challenge.user_avatar_path || '/petblog/images/Default avatar.png'}" alt="头像" class="author-avatar">
+                        <span>发起者：${challenge.user_name}</span>
+                    </div>
+                    <div id="winner_${challenge.challenge_id}" class="challenge-winner" style="display: none;">
+                        <!-- 获胜者信息将在这里显示 -->
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="participate-btn"
+                                onclick="participateChallenge(${challenge.challenge_id})"
+                                ${status.type !== 'ongoing' ? 'disabled' : ''}
+                                style="flex: 1; min-width: 100px;">
+                            ${status.type === 'ongoing' ? '参与挑战' : '挑战已结束'}
+                        </button>
+                        <button class="participate-btn"
+                                onclick="viewChallengeBlogs(${challenge.challenge_id})"
+                                style="flex: 1; min-width: 100px; background: var(--blue-accent);">
+                            查看作品
+                        </button>
+                        <button class="participate-btn"
+                                onclick="viewPetRankings(${challenge.challenge_id})"
+                                style="flex: 1; min-width: 100px; background: var(--secondary-color);">
+                            🏆 排名
+                        </button>
+                        ${canDelete ? `
+                            <button class="participate-btn"
+                                    onclick="deleteChallenge(${challenge.challenge_id})"
+                                    style="flex: 1; min-width: 100px; background: #e74c3c; color: white;">
+                                🗑️ 删除
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 获取挑战状态
+        function getChallengeStatus(startTime, endTime) {
+            const now = new Date();
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            
+            if (now < start) {
+                return { type: 'planning', text: '规划中' };
+            } else if (now >= start && now <= end) {
+                return { type: 'ongoing', text: '进行中' };
+            } else {
+                return { type: 'ended', text: '已结束' };
+            }
+        }
+
+        // 格式化日期时间
+        function formatDateTime(dateTime) {
+            return new Date(dateTime).toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 格式化热度数值
+        function formatHeat(heat) {
+            if (heat >= 10000) {
+                return (heat / 10000).toFixed(1) + 'w';
+            } else if (heat >= 1000) {
+                return (heat / 1000).toFixed(1) + 'k';
+            } else {
+                return heat.toString();
+            }
+        }
+
+        // 打开创建挑战模态框
+        function openCreateModal() {
+            document.getElementById('createChallengeModal').style.display = 'block';
+            
+            // 设置默认时间
+            const now = new Date();
+            const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('startTime').value = formatDateTimeLocal(tomorrow);
+            document.getElementById('endTime').value = formatDateTimeLocal(nextWeek);
+        }
+
+        // 关闭创建挑战模态框
+        function closeCreateModal() {
+            document.getElementById('createChallengeModal').style.display = 'none';
+            document.getElementById('createChallengeForm').reset();
+        }
+
+        // 格式化为datetime-local输入格式
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // 创建挑战表单提交
+        document.getElementById('createChallengeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const challengeData = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                start_time: formData.get('start_time'),
+                end_time: formData.get('end_time')
+            };
+            
+            // 验证时间
+            const startTime = new Date(challengeData.start_time);
+            const endTime = new Date(challengeData.end_time);
+            const now = new Date();
+            
+            if (startTime <= now) {
+                alert('开始时间必须晚于当前时间');
+                return;
+            }
+            
+            if (endTime <= startTime) {
+                alert('结束时间必须晚于开始时间');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/challenges', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(challengeData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('挑战创建成功！');
+                    closeCreateModal();
+                    loadChallenges(); // 重新加载挑战列表
+                } else {
+                    alert(result.message || '创建挑战失败');
+                }
+            } catch (error) {
+                console.error('创建挑战失败:', error);
+                alert('创建挑战失败，请稍后重试');
+            }
+        });
+
+        // 参与挑战
+        async function participateChallenge(challengeId) {
+            try {
+                // 获取挑战详情
+                const response = await fetch(`/petblog/api/challenges/${challengeId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const challenge = result.challenge;
+
+                    // 填充挑战信息
+                    document.getElementById('participateChallengeTitle').textContent = challenge.challenge_title;
+                    document.getElementById('participateChallengeDescription').textContent = challenge.challenge_description || '暂无描述';
+                    document.getElementById('participateChallengeTime').textContent =
+                        `开始：${formatDateTime(challenge.challenge_start_time)} | 结束：${formatDateTime(challenge.challenge_end_time)}`;
+                    document.getElementById('participateChallengeId').value = challengeId;
+
+                    // 加载宠物列表和专栏列表
+                    await loadPetsForParticipate();
+                    await loadColumnsForParticipate();
+
+                    // 显示参与模态框
+                    document.getElementById('participateModal').style.display = 'block';
+                } else {
+                    alert('挑战不存在或已结束');
+                }
+            } catch (error) {
+                console.error('加载挑战信息失败:', error);
+                alert('加载挑战信息失败');
+            }
+        }
+
+        // 加载宠物列表用于参与挑战
+        async function loadPetsForParticipate() {
+            try {
+                const response = await fetch('/petblog/api/pets/my');
+                const pets = await response.json();
+
+                const container = document.getElementById('participatePetSelection');
+
+                if (pets.length === 0) {
+                    container.innerHTML = '<div style="color: #666; text-align: center; padding: 10px;">您还没有添加狗狗，请先在个人中心添加</div>';
+                    return;
+                }
+
+                container.innerHTML = pets.map(pet => `
+                    <div class="pet-tag" data-pet-id="${pet.pet_id}" onclick="togglePetSelection(this)">
+                        <img src="${pet.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${pet.pet_name}">
+                        ${pet.pet_name}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载宠物列表失败:', error);
+                document.getElementById('participatePetSelection').innerHTML =
+                    '<div style="color: #e74c3c; text-align: center; padding: 10px;">加载宠物列表失败</div>';
+            }
+        }
+
+        // 加载专栏列表用于参与挑战
+        async function loadColumnsForParticipate() {
+            try {
+                const response = await fetch('/petblog/api/columns/my');
+                const columns = await response.json();
+
+                const select = document.getElementById('participateColumnId');
+
+                // 清空现有选项（保留默认选项）
+                select.innerHTML = '<option value="">不选择专栏</option>';
+
+                // 添加专栏选项
+                columns.forEach(column => {
+                    const option = document.createElement('option');
+                    option.value = column.Column_id;
+                    option.textContent = column.Column_name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载专栏列表失败:', error);
+            }
+        }
+
+        // 切换宠物选择状态
+        function togglePetSelection(element) {
+            element.classList.toggle('selected');
+        }
+
+        // 快速创建专栏用于参与挑战
+        async function createQuickColumnForParticipate(columnName) {
+            try {
+                const response = await fetch('/petblog/api/columns', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: columnName })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 重新加载专栏列表
+                    await loadColumnsForParticipate();
+                    // 自动选择新创建的专栏
+                    document.getElementById('participateColumnId').value = result.column_id;
+                    alert('专栏创建成功！');
+                } else {
+                    alert(result.message || '创建专栏失败');
+                }
+            } catch (error) {
+                console.error('创建专栏失败:', error);
+                alert('创建专栏失败，请稍后重试');
+            }
+        }
+
+        // 查看挑战作品
+        async function viewChallengeBlogs(challengeId) {
+            try {
+                console.log('开始加载挑战作品，挑战ID:', challengeId);
+                
+                // 设置当前挑战ID到全局变量
+                window.currentChallengeId = challengeId;
+                
+                // 获取挑战详情
+                console.log('正在获取挑战详情...');
+                const challengeResponse = await fetch(`/petblog/api/challenges/${challengeId}`);
+                
+                if (!challengeResponse.ok) {
+                    throw new Error(`挑战详情请求失败: ${challengeResponse.status} ${challengeResponse.statusText}`);
+                }
+                
+                const challengeResult = await challengeResponse.json();
+                console.log('挑战详情响应:', challengeResult);
+
+                if (challengeResult.success) {
+                    const challenge = challengeResult.challenge;
+
+                    // 填充挑战信息
+                    document.getElementById('challengeBlogsTitle').textContent = challenge.challenge_title;
+                    document.getElementById('challengeBlogsDescription').textContent = challenge.challenge_description || '暂无描述';
+
+                    // 获取挑战相关的博客
+                    console.log('正在获取挑战博客...');
+                    const blogsResponse = await fetch(`/petblog/api/challenges/${challengeId}/blogs-with-heat`);
+                    
+                    if (!blogsResponse.ok) {
+                        throw new Error(`博客列表请求失败: ${blogsResponse.status} ${blogsResponse.statusText}`);
+                    }
+                    
+                    const blogs = await blogsResponse.json();
+                    console.log('博客列表响应:', blogs);
+
+                    const container = document.getElementById('challengeBlogsList');
+
+                    if (blogs.length === 0) {
+                        container.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">暂无参与作品</div>';
+                    } else {
+                        container.innerHTML = blogs.map(blog => createBlogCard(blog)).join('');
+                        // 加载每个博客的投票状态
+                        blogs.forEach(blog => {
+                            loadVoteStatus(blog.blog_id);
+                        });
+                    }
+
+                    // 显示模态框
+                    document.getElementById('challengeBlogsModal').style.display = 'block';
+                } else {
+                    throw new Error(challengeResult.message || '获取挑战信息失败');
+                }
+            } catch (error) {
+                console.error('加载挑战作品失败:', error);
+                alert(`加载挑战作品失败: ${error.message}`);
+            }
+        }
+
+        // 创建博客卡片
+        function createBlogCard(blog) {
+            // 检查是否为当前用户的博客
+            const isCurrentUserBlog = currentUserId && parseInt(blog.user_id) === parseInt(currentUserId);
+            
+            return `
+                <div class="blog-card">
+                    <div class="blog-header">
+                        <img src="${blog.user_avatar_path || '/petblog/images/Default avatar.png'}" alt="头像" class="blog-author-avatar">
+                        <div class="blog-author-info">
+                            <div class="blog-author-name">${blog.user_name}</div>
+                            <div class="blog-time">${formatDateTime(blog.blog_create_time)}</div>
+                        </div>
+                        ${isCurrentUserBlog ? `
+                            <button class="remove-challenge-btn" onclick="removeFromChallenge(${blog.blog_id})" title="从挑战中移出">
+                                🚫 退出挑战
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="blog-title">${blog.blog_title}</div>
+                    <div class="blog-content">${blog.blog_content.substring(0, 150)}${blog.blog_content.length > 150 ? '...' : ''}</div>
+                    <div class="blog-heat-section">
+                        <div class="blog-heat-display">
+                            <span class="heat-icon">🔥</span>
+                            <span class="heat-label">热度：</span>
+                            <span class="heat-value" id="heat_${blog.blog_id}">${formatHeat(blog.heat || 0)}</span>
+                            <button class="heat-details-btn" onclick="showHeatDetails(${blog.blog_id})" title="查看热度详情">
+                                📊
+                            </button>
+                        </div>
+                    </div>
+                    <div class="blog-actions">
+                        <button class="vote-btn" onclick="toggleVote(${blog.blog_id}, this)" data-blog-id="${blog.blog_id}">
+                            👍 投票
+                        </button>
+                        <div class="vote-count" id="voteCount_${blog.blog_id}">${blog.vote_count || 0} 票</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 从挑战中移出博客
+        async function removeFromChallenge(blogId) {
+            if (!confirm('确定要从挑战中移出这个博客吗？移出后将不再参与挑战。')) {
+                return;
+            }
+
+            // 获取当前挑战ID（从URL或全局变量）
+            const currentChallengeId = getCurrentChallengeId();
+            if (!currentChallengeId) {
+                alert('无法获取挑战信息');
+                return;
+            }
+
+            try {
+                const response = await fetch('/petblog/api/challenges/remove-blog', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        challenge_id: currentChallengeId,
+                        blog_id: blogId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('博客已从挑战中移出！');
+                    // 重新加载挑战作品列表
+                    viewChallengeBlogs(currentChallengeId);
+                } else {
+                    alert(result.message || '移出失败');
+                }
+            } catch (error) {
+                console.error('移出博客失败:', error);
+                alert('移出失败，请稍后重试');
+            }
+        }
+
+        // 获取当前挑战ID
+        function getCurrentChallengeId() {
+            // 从全局变量或URL参数获取当前挑战ID
+            // 这里需要根据实际情况调整
+            return window.currentChallengeId;
+        }
+
+        // 查看狗狗排名
+        async function viewPetRankings(challengeId) {
+            try {
+                // 获取挑战详情
+                const challengeResponse = await fetch(`/petblog/api/challenges/${challengeId}`);
+                const challengeResult = await challengeResponse.json();
+
+                if (challengeResult.success) {
+                    const challenge = challengeResult.challenge;
+
+                    // 填充挑战信息
+                    document.getElementById('rankingsTitle').textContent = challenge.challenge_title;
+                    document.getElementById('rankingsDescription').textContent = challenge.challenge_description || '暂无描述';
+
+                    // 检查挑战状态
+                    const status = getChallengeStatus(challenge.challenge_start_time, challenge.challenge_end_time);
+                    document.getElementById('challengeStatus').textContent = `挑战状态：${status.text}`;
+
+                    // 获取狗狗排名
+                    const rankingsResponse = await fetch(`/petblog/api/challenges/${challengeId}/pet-rankings`);
+                    const rankingsResult = await rankingsResponse.json();
+
+                    if (rankingsResult.success) {
+                        const rankings = rankingsResult.rankings;
+
+                        // 如果挑战已结束，显示获胜者
+                        if (status.type === 'ended') {
+                            const winnersResponse = await fetch(`/petblog/api/challenges/${challengeId}/winners`);
+                            const winnersResult = await winnersResponse.json();
+
+                            if (winnersResult.success && winnersResult.winners.length > 0) {
+                                document.getElementById('winnersSection').style.display = 'block';
+                                document.getElementById('winnersList').innerHTML = winnersResult.winners.map(winner => `
+                                    <div class="winner-card">
+                                        <img src="${winner.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${winner.pet_name}" class="winner-avatar">
+                                        <div class="winner-info">
+                                            <div class="winner-name">${winner.pet_name}</div>
+                                            <div class="winner-votes">${winner.vote_count} 票 | 主人：${winner.owner_name}</div>
+                                        </div>
+                                        <div style="font-size: 2rem;">🏆</div>
+                                    </div>
+                                `).join('');
+                            } else {
+                                document.getElementById('winnersSection').style.display = 'none';
+                            }
+                        } else {
+                            document.getElementById('winnersSection').style.display = 'none';
+                        }
+
+                        // 显示排名列表
+                        const container = document.getElementById('petRankingsList');
+
+                        if (rankings.length === 0) {
+                            container.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">暂无参与的狗狗</div>';
+                        } else {
+                            container.innerHTML = rankings.map((pet, index) => createPetRankingCard(pet, index)).join('');
+                        }
+
+                        // 显示模态框
+                        document.getElementById('petRankingsModal').style.display = 'block';
+                    } else {
+                        alert('获取排名失败');
+                    }
+                } else {
+                    alert('获取挑战信息失败');
+                }
+            } catch (error) {
+                console.error('加载狗狗排名失败:', error);
+                alert('加载狗狗排名失败');
+            }
+        }
+
+        // 创建狗狗排名卡片
+        function createPetRankingCard(pet, index) {
+            const ranking = pet.ranking;
+            let cardClass = 'pet-ranking-card';
+            let badgeClass = 'ranking-badge';
+            let rankIcon = ranking;
+
+            if (ranking === 1) {
+                cardClass += ' winner';
+                badgeClass += ' first';
+                rankIcon = '🥇';
+            } else if (ranking === 2) {
+                cardClass += ' second';
+                badgeClass += ' second';
+                rankIcon = '🥈';
+            } else if (ranking === 3) {
+                cardClass += ' third';
+                badgeClass += ' third';
+                rankIcon = '🥉';
+            } else {
+                badgeClass += ' other';
+            }
+
+            return `
+                <div class="${cardClass}">
+                    <div class="${badgeClass}">${rankIcon}</div>
+                    <div class="pet-ranking-header">
+                        <img src="${pet.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${pet.pet_name}" class="pet-ranking-avatar">
+                        <div class="pet-ranking-info">
+                            <div class="pet-ranking-name">${pet.pet_name}</div>
+                            <div class="pet-ranking-breed">${pet.pet_breed}</div>
+                            <div class="pet-ranking-owner">
+                                <img src="${pet.owner_avatar || '/images/Default avatar.png'}" alt="${pet.owner_name}" class="owner-avatar">
+                                <span>主人：${pet.owner_name}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pet-ranking-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">${pet.vote_count}</div>
+                            <div class="stat-label">投票数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${pet.blog_count}</div>
+                            <div class="stat-label">作品数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">#${ranking}</div>
+                            <div class="stat-label">排名</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 关闭狗狗排名模态框
+        function closePetRankings() {
+            document.getElementById('petRankingsModal').style.display = 'none';
+        }
+
+        // 关闭挑战作品模态框
+        function closeChallengeBlogs() {
+            document.getElementById('challengeBlogsModal').style.display = 'none';
+        }
+
+        // 关闭参与挑战模态框
+        function closeParticipateModal() {
+            document.getElementById('participateModal').style.display = 'none';
+            document.getElementById('participateBlogForm').reset();
+            // 清除宠物选择状态
+            document.querySelectorAll('.pet-tag.selected').forEach(tag => {
+                tag.classList.remove('selected');
+            });
+        }
+
+        // 参与挑战表单提交
+        document.getElementById('participateBlogForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            // 获取选中的宠物ID列表
+            const selectedPetTags = document.querySelectorAll('#participatePetSelection .pet-tag.selected');
+            const petIds = Array.from(selectedPetTags).map(tag => tag.dataset.petId).filter(id => id);
+
+            // 验证是否选择了宠物
+            if (petIds.length === 0) {
+                alert('参与挑战必须选择至少一只狗狗！');
+                return;
+            }
+
+            // 添加宠物ID到表单数据
+            formData.append('pet_ids', JSON.stringify(petIds));
+
+            try {
+                const response = await fetch('/petblog/api/blogs/add', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('成功参与挑战！博客已发布！');
+                    closeParticipateModal();
+                    loadChallenges(); // 重新加载挑战列表
+                } else {
+                    alert(result.message || '参与挑战失败');
+                }
+            } catch (error) {
+                console.error('参与挑战失败:', error);
+                alert('参与挑战失败，请稍后重试');
+            }
+        });
+
+        // 切换投票状态
+        async function toggleVote(blogId, buttonElement) {
+            try {
+                const response = await fetch('/petblog/api/votes/toggle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ blog_id: blogId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新按钮状态
+                    if (result.voted) {
+                        buttonElement.classList.add('voted');
+                        buttonElement.textContent = '👍 已投票';
+                    } else {
+                        buttonElement.classList.remove('voted');
+                        buttonElement.textContent = '👍 投票';
+                    }
+
+                    // 更新投票数
+                    document.getElementById(`voteCount_${blogId}`).textContent = `${result.voteCount} 票`;
+
+                    // 更新博客热度
+                    updateBlogHeat(blogId);
+
+                    // 更新挑战热度（如果在挑战页面）
+                    const currentChallengeId = getCurrentChallengeId();
+                    if (currentChallengeId) {
+                        updateChallengeHeat(currentChallengeId);
+                    }
+                } else {
+                    alert(result.message || '投票失败');
+                }
+            } catch (error) {
+                console.error('投票失败:', error);
+                alert('投票失败，请稍后重试');
+            }
+        }
+
+        // 更新博客热度显示
+        async function updateBlogHeat(blogId) {
+            try {
+                const response = await fetch(`/api/blogs/${blogId}/heat-details`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const heatElement = document.getElementById(`heat_${blogId}`);
+                    if (heatElement) {
+                        heatElement.textContent = formatHeat(result.heat);
+                    }
+                }
+            } catch (error) {
+                console.error('更新博客热度失败:', error);
+            }
+        }
+
+        // 更新挑战热度显示
+        async function updateChallengeHeat(challengeId) {
+            try {
+                const response = await fetch(`/petblog/api/challenges/${challengeId}/heat`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const heatElement = document.getElementById(`heat_${challengeId}`);
+                    if (heatElement) {
+                        heatElement.textContent = formatHeat(result.heat);
+                    }
+                }
+            } catch (error) {
+                console.error('更新挑战热度失败:', error);
+            }
+        }
+
+        // 加载博客的投票状态
+        async function loadVoteStatus(blogId) {
+            try {
+                const response = await fetch(`/api/votes/status/${blogId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const button = document.querySelector(`[data-blog-id="${blogId}"]`);
+                    const countElement = document.getElementById(`voteCount_${blogId}`);
+
+                    if (button) {
+                        if (result.userVoted) {
+                            button.classList.add('voted');
+                            button.textContent = '👍 已投票';
+                        } else {
+                            button.classList.remove('voted');
+                            button.textContent = '👍 投票';
+                        }
+                    }
+
+                    if (countElement) {
+                        countElement.textContent = `${result.voteCount} 票`;
+                    }
+                }
+            } catch (error) {
+                console.error('加载投票状态失败:', error);
+            }
+        }
+
+        // 删除挑战
+        async function deleteChallenge(challengeId) {
+            if (!confirm('确定要删除这个挑战吗？删除后无法恢复。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/petblog/api/challenges/${challengeId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('挑战删除成功！');
+                    loadChallenges(); // 重新加载挑战列表
+                } else {
+                    alert(result.message || '删除挑战失败');
+                }
+            } catch (error) {
+                console.error('删除挑战失败:', error);
+                alert('删除挑战失败，请稍后重试');
+            }
+        }
+
+        // 显示热度详情
+        async function showHeatDetails(blogId) {
+            try {
+                const response = await fetch(`/api/blogs/${blogId}/heat-details`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const details = result.details;
+                    const calculation = result.calculation;
+                    
+                    const detailsHtml = `
+                        <div class="heat-details-modal">
+                            <div class="heat-details-content">
+                                <div class="heat-details-header">
+                                    <h3>🔥 博客热度详情</h3>
+                                    <button class="close-btn" onclick="closeHeatDetails()">×</button>
+                                </div>
+                                <div class="heat-details-body">
+                                    <div class="total-heat">
+                                        <span class="total-heat-label">总热度：</span>
+                                        <span class="total-heat-value">${formatHeat(result.heat)}</span>
+                                    </div>
+                                    <div class="heat-breakdown">
+                                        <h4>热度构成：</h4>
+                                        <div class="heat-item">
+                                            <span class="heat-item-label">👍 投票：</span>
+                                            <span class="heat-item-value">${details.votes}</span>
+                                            <span class="heat-item-calculation">${calculation.votes}</span>
+                                        </div>
+                                        <div class="heat-item">
+                                            <span class="heat-item-label">❤️ 点赞：</span>
+                                            <span class="heat-item-value">${details.likes}</span>
+                                            <span class="heat-item-calculation">${calculation.likes}</span>
+                                        </div>
+                                        <div class="heat-item">
+                                            <span class="heat-item-label">⭐ 收藏：</span>
+                                            <span class="heat-item-value">${details.favorites}</span>
+                                            <span class="heat-item-calculation">${calculation.favorites}</span>
+                                        </div>
+                                        <div class="heat-item">
+                                            <span class="heat-item-label">💬 评论：</span>
+                                            <span class="heat-item-value">${details.replies}</span>
+                                            <span class="heat-item-calculation">${calculation.replies}</span>
+                                        </div>
+                                        <div class="heat-item">
+                                            <span class="heat-item-label">🔄 转发：</span>
+                                            <span class="heat-item-value">${details.reposts}</span>
+                                            <span class="heat-item-calculation">${calculation.reposts}</span>
+                                        </div>
+                                    </div>
+                                    <div class="heat-formula">
+                                        <h4>计算公式：</h4>
+                                        <p>热度 = 投票数×50 + 点赞数×20 + 收藏数×20 + 评论数×10 + 转发数×10</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 创建模态框
+                    const modal = document.createElement('div');
+                    modal.id = 'heatDetailsModal';
+                    modal.innerHTML = detailsHtml;
+                    document.body.appendChild(modal);
+
+                    // 显示模态框
+                    setTimeout(() => {
+                        modal.style.display = 'flex';
+                    }, 10);
+                } else {
+                    alert('获取热度详情失败：' + result.message);
+                }
+            } catch (error) {
+                console.error('获取热度详情失败:', error);
+                alert('获取热度详情失败，请稍后重试');
+            }
+        }
+
+        // 关闭热度详情
+        function closeHeatDetails() {
+            const modal = document.getElementById('heatDetailsModal');
+            if (modal) {
+                modal.style.display = 'none';
+                setTimeout(() => {
+                    document.body.removeChild(modal);
+                }, 300);
+            }
+        }
+
+        // 点击模态框外部关闭
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('heatDetailsModal');
+            if (modal && event.target === modal) {
+                closeHeatDetails();
+            }
+        });
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const createModal = document.getElementById('createChallengeModal');
+            const participateModal = document.getElementById('participateModal');
+            const challengeBlogsModal = document.getElementById('challengeBlogsModal');
+            const petRankingsModal = document.getElementById('petRankingsModal');
+
+            if (event.target === createModal) {
+                closeCreateModal();
+            } else if (event.target === participateModal) {
+                closeParticipateModal();
+            } else if (event.target === challengeBlogsModal) {
+                closeChallengeBlogs();
+            } else if (event.target === petRankingsModal) {
+                closePetRankings();
+            }
+        }
+    </script>
+</body>
+</html>
