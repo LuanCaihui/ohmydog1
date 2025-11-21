@@ -422,7 +422,7 @@
             <a href="/" class="logo">Oh my dog！</a>
             <div class="nav-links">
                 <a href="/auditor/dashboard" class="active">审核首页</a>
-                <a href="/auditor/logout">退出登录</a>
+                <a href="/petblog/auditor_login.html">退出登录</a>
             </div>
         </div>
     </header>
@@ -537,22 +537,46 @@
             return;
         }
         
-        // 分组
-        const pending = data.reports.filter(r => r.report_status == 0);
-        const handled = data.reports.filter(r => r.report_status != 0);
+        // 调试：打印第一个报告对象，查看字段名
+        if (data.reports.length > 0) {
+            console.log('第一个报告对象:', data.reports[0]);
+            console.log('reportId:', data.reports[0].reportId, 'report_id:', data.reports[0].report_id);
+        }
+        
+        // 分组 - 兼容两种字段名格式
+        const pending = data.reports.filter(r => {
+            const status = r.reportStatus !== undefined ? r.reportStatus : r.report_status;
+            return status == 0;
+        });
+        const handled = data.reports.filter(r => {
+            const status = r.reportStatus !== undefined ? r.reportStatus : r.report_status;
+            return status != 0;
+        });
         
         // 加载统计信息
         loadReportStats();
         
         // 渲染待处理举报
         if (pending.length > 0) {
-            const pendingHtml = pending.map(r => `
-                <div class="report-card" style="background:linear-gradient(135deg, #fff 0%, #f8f9fa 100%);border-radius:16px;box-shadow:0 4px 20px rgba(74,155,142,0.1);border:2px solid #e8f5e8;padding:24px;margin-bottom:20px;transition:all 0.3s ease;cursor:pointer;position:relative;overflow:hidden;" onclick="showReportDetail(${r.report_id})">
+            const pendingHtml = pending.filter(r => {
+                const id = r.reportId !== undefined ? r.reportId : r.report_id;
+                return id != null && id !== undefined;
+            }).map(r => {
+                // 兼容两种字段名格式
+                const reportId = r.reportId !== undefined ? r.reportId : r.report_id;
+                const userId = r.userId !== undefined ? r.userId : r.user_id;
+                const blogId = r.blogId !== undefined ? r.blogId : r.blog_id;
+                const reportCreatedTime = r.reportCreatedTime !== undefined ? r.reportCreatedTime : r.report_createdtime;
+                const userName = r.userName !== undefined ? r.userName : r.user_name;
+                const blogTitle = r.blogTitle !== undefined ? r.blogTitle : r.blog_title;
+                
+                return `
+                <div class="report-card" style="background:linear-gradient(135deg, #fff 0%, #f8f9fa 100%);border-radius:16px;box-shadow:0 4px 20px rgba(74,155,142,0.1);border:2px solid #e8f5e8;padding:24px;margin-bottom:20px;transition:all 0.3s ease;cursor:pointer;position:relative;overflow:hidden;" onclick="showReportDetail(${reportId})">
                     <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);"></div>
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
                         <div style="flex:1;">
                             <div style="font-size:13px;color:#7f8c8d;display:flex;align-items:center;gap:8px;">
-                                <span>📅 ${new Date(r.report_createdtime).toLocaleString()}</span>
+                                <span>📅 ${new Date(reportCreatedTime).toLocaleString()}</span>
                             </div>
                         </div>
                         <span class="status-badge status-pending" style="margin-left:12px;">待处理</span>
@@ -560,7 +584,7 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
                         <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #ecf0f1;">
                             <div style="font-weight:600;color:#34495e;margin-bottom:4px;">👤 举报人</div>
-                            <div style="color:#7f8c8d;font-size:14px;">${r.user_name || r.user_id}</div>
+                            <div style="color:#7f8c8d;font-size:14px;">${userName || userId}</div>
                         </div>
                         <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #ecf0f1;">
                             <div style="font-weight:600;color:#34495e;margin-bottom:4px;">📝 举报理由</div>
@@ -569,15 +593,16 @@
                     </div>
                     <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #ecf0f1;margin-bottom:20px;">
                         <div style="font-weight:600;color:#34495e;margin-bottom:4px;">📄 博客标题</div>
-                        <div style="color:#2c3e50;font-size:14px;font-weight:500;">${r.blog_title || '博客ID:' + r.blog_id}</div>
+                        <div style="color:#2c3e50;font-size:14px;font-weight:500;">${blogTitle || '博客ID:' + blogId}</div>
                     </div>
                     <div style="display:flex;gap:10px;justify-content:flex-end;" onclick="event.stopPropagation();">
-                        <button class="action-btn" style="background:linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(231,76,60,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(231,76,60,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(231,76,60,0.3)'" onclick="banUser(${r.user_id}, ${r.report_id})">🚫 封禁用户</button>
-                        <button class="action-btn" style="background:linear-gradient(135deg, #f39c12 0%, #e67e22 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(243,156,18,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(243,156,18,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(243,156,18,0.3)'" onclick="banBlog(${r.blog_id}, ${r.report_id})">🚫 封禁博客</button>
-                        <button class="action-btn" style="background:linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(149,165,166,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(149,165,166,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(149,165,166,0.3)'" onclick="rejectReport(${r.report_id}, ${r.user_id})">❌ 驳回举报</button>
+                        <button class="action-btn" style="background:linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(231,76,60,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(231,76,60,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(231,76,60,0.3)'" onclick="banUser(${userId}, ${reportId})">🚫 封禁用户</button>
+                        <button class="action-btn" style="background:linear-gradient(135deg, #f39c12 0%, #e67e22 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(243,156,18,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(243,156,18,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(243,156,18,0.3)'" onclick="banBlog(${blogId}, ${reportId})">🚫 封禁博客</button>
+                        <button class="action-btn" style="background:linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);color:#fff;border:none;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(149,165,166,0.3);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(149,165,166,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(149,165,166,0.3)'" onclick="rejectReport(${reportId}, ${userId})">❌ 驳回举报</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
             pendingList.innerHTML = pendingHtml;
         } else {
             pendingList.innerHTML = '<div class="list-placeholder">暂无待处理举报</div>';
@@ -585,39 +610,53 @@
         
         // 渲染已处理举报
         if (handled.length > 0) {
-            const handledHtml = handled.map(r => {
+            const handledHtml = handled.filter(r => {
+                const id = r.reportId !== undefined ? r.reportId : r.report_id;
+                return id != null && id !== undefined;
+            }).map(r => {
+                // 兼容两种字段名格式
+                const reportId = r.reportId !== undefined ? r.reportId : r.report_id;
+                const userId = r.userId !== undefined ? r.userId : r.user_id;
+                const blogId = r.blogId !== undefined ? r.blogId : r.blog_id;
+                const reportCreatedTime = r.reportCreatedTime !== undefined ? r.reportCreatedTime : r.report_createdtime;
+                const userName = r.userName !== undefined ? r.userName : r.user_name;
+                const blogTitle = r.blogTitle !== undefined ? r.blogTitle : r.blog_title;
+                const reportStatus = r.reportStatus !== undefined ? r.reportStatus : r.report_status;
+                const userIsBan = r.userIsBan !== undefined ? r.userIsBan : r.user_is_ban;
+                const blogIsShielded = r.blogIsShielded !== undefined ? r.blogIsShielded : r.blog_is_shielded;
+                
                 let statusText = '已处理';
                 let statusClass = 'status-pending';
                 let statusColor = '#95a5a6';
                 // 优先判断用户封禁，其次博客封禁，再判断report_status
-                if (r.user_is_ban == 1) {
+                if (userIsBan == 1) {
                     statusText = '用户已封禁';
                     statusClass = 'status-user-banned';
                     statusColor = '#e74c3c';
-                } else if (r.blog_is_shielded == 1) {
+                } else if (blogIsShielded == 1) {
                     statusText = '博客已封禁';
                     statusClass = 'status-blog-banned';
                     statusColor = '#f39c12';
-                } else if (r.report_status == 1) {
+                } else if (reportStatus == 1) {
                     statusText = '用户已封禁';
                     statusClass = 'status-user-banned';
                     statusColor = '#e74c3c';
-                } else if (r.report_status == 2) {
+                } else if (reportStatus == 2) {
                     statusText = '博客已封禁';
                     statusClass = 'status-blog-banned';
                     statusColor = '#f39c12';
-                } else if (r.report_status == 3) {
+                } else if (reportStatus == 3) {
                     statusText = '举报已驳回';
                     statusClass = 'status-rejected';
                     statusColor = '#95a5a6';
                 }
                 return `
-                    <div class="report-card" style="background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);border-radius:16px;box-shadow:0 3px 15px rgba(39,174,96,0.08);border:2px solid #d4edda;padding:24px;margin-bottom:18px;opacity:0.95;cursor:pointer;position:relative;overflow:hidden;" onclick="showReportDetail(${r.report_id})">
+                    <div class="report-card" style="background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);border-radius:16px;box-shadow:0 3px 15px rgba(39,174,96,0.08);border:2px solid #d4edda;padding:24px;margin-bottom:18px;opacity:0.95;cursor:pointer;position:relative;overflow:hidden;" onclick="showReportDetail(${reportId})">
                         <div style="position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg, ${statusColor} 0%, ${statusColor}dd 100%);"></div>
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
                             <div style="flex:1;">
                                 <div style="font-size:13px;color:#6c757d;display:flex;align-items:center;gap:8px;">
-                                    <span>📅 ${new Date(r.report_createdtime).toLocaleString()}</span>
+                                    <span>📅 ${new Date(reportCreatedTime).toLocaleString()}</span>
                                 </div>
                             </div>
                             <span class="status-badge ${statusClass}" style="margin-left:12px;background:${statusColor};">${statusText}</span>
@@ -625,7 +664,7 @@
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
                             <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #dee2e6;">
                                 <div style="font-weight:600;color:#495057;margin-bottom:4px;">👤 举报人</div>
-                                <div style="color:#6c757d;font-size:14px;">${r.user_name || r.user_id}</div>
+                                <div style="color:#6c757d;font-size:14px;">${userName || userId}</div>
                             </div>
                             <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #dee2e6;">
                                 <div style="font-weight:600;color:#495057;margin-bottom:4px;">📝 举报理由</div>
@@ -634,7 +673,7 @@
                         </div>
                         <div style="background:#fff;padding:12px;border-radius:10px;border:1px solid #dee2e6;margin-bottom:0;">
                             <div style="font-weight:600;color:#495057;margin-bottom:4px;">📄 博客标题</div>
-                            <div style="color:#495057;font-size:14px;font-weight:500;">${r.blog_title || '博客ID:' + r.blog_id}</div>
+                            <div style="color:#495057;font-size:14px;font-weight:500;">${blogTitle || '博客ID:' + blogId}</div>
                         </div>
                     </div>
                 `;
@@ -647,6 +686,13 @@
 
     // 显示举报详情
     async function showReportDetail(reportId) {
+        // 验证参数
+        if (!reportId || reportId === 'undefined' || reportId === 'null') {
+            console.error('无效的举报ID:', reportId);
+            alert('无效的举报ID，无法加载详情');
+            return;
+        }
+        
         try {
             const response = await fetch(`/petblog/api/reports/${reportId}/detail`);
             const result = await response.json();
@@ -657,68 +703,91 @@
                 const reporter = result.reporter;
                 const blogAuthor = result.blogAuthor;
                 
+                // 兼容两种字段名格式
+                const reportId = report.reportId !== undefined ? report.reportId : report.report_id;
+                const reportCreatedTime = report.reportCreatedTime !== undefined ? report.reportCreatedTime : report.report_createdtime;
+                const reportStatus = report.reportStatus !== undefined ? report.reportStatus : report.report_status;
+                const reportHandledTime = report.reportHandledTime !== undefined ? report.reportHandledTime : report.report_handled_time;
+                
+                const reporterUserId = reporter ? (reporter.userId !== undefined ? reporter.userId : reporter.user_id) : null;
+                const reporterUserName = reporter ? (reporter.userName !== undefined ? reporter.userName : reporter.user_name) : null;
+                const reporterEmail = reporter ? (reporter.email !== undefined ? reporter.email : reporter.user_email) : null;
+                
+                const blogId = blog ? (blog.blogId !== undefined ? blog.blogId : blog.blog_id) : null;
+                const blogTitle = blog ? (blog.blogTitle !== undefined ? blog.blogTitle : blog.blog_title) : null;
+                const blogContent = blog ? (blog.blogContent !== undefined ? blog.blogContent : blog.blog_content) : null;
+                const blogCreateTime = blog ? (blog.blogCreateTime !== undefined ? blog.blogCreateTime : blog.blog_create_time) : null;
+                const likeCount = blog ? (blog.likeCount !== undefined ? blog.likeCount : blog.like_count) : 0;
+                const favoriteCount = blog ? (blog.favoriteCount !== undefined ? blog.favoriteCount : blog.favorite_count) : 0;
+                const commentCount = blog ? (blog.commentCount !== undefined ? blog.commentCount : blog.comment_count) : 0;
+                
+                const blogAuthorUserId = blogAuthor ? (blogAuthor.userId !== undefined ? blogAuthor.userId : blogAuthor.user_id) : null;
+                const blogAuthorUserName = blogAuthor ? (blogAuthor.userName !== undefined ? blogAuthor.userName : blogAuthor.user_name) : null;
+                const blogAuthorEmail = blogAuthor ? (blogAuthor.email !== undefined ? blogAuthor.email : blogAuthor.user_email) : null;
+                const blogAuthorCreatedTime = blogAuthor ? (blogAuthor.userCreatedTime !== undefined ? blogAuthor.userCreatedTime : blogAuthor.user_createdtime) : null;
+                
                 const detailContent = `
                     <div class="report-detail-section">
                         <div class="report-detail-title">举报信息</div>
                         <div class="report-detail-content">
-                            <p><strong>举报ID：</strong>${report.report_id}</p>
-                            <p><strong>举报时间：</strong>${new Date(report.report_createdtime).toLocaleString()}</p>
-                            <p><strong>举报状态：</strong>${report.report_status == 0 ? '<span style="color:#e74c3c;">待处理</span>' : '<span style="color:#27ae60;">已处理</span>'}</p>
-                            ${report.report_handled_time ? `<p><strong>处理时间：</strong>${new Date(report.report_handled_time).toLocaleString()}</p>` : ''}
+                            <p><strong>举报ID：</strong>${reportId}</p>
+                            <p><strong>举报时间：</strong>${new Date(reportCreatedTime).toLocaleString()}</p>
+                            <p><strong>举报状态：</strong>${reportStatus == 0 ? '<span style="color:#e74c3c;">待处理</span>' : '<span style="color:#27ae60;">已处理</span>'}</p>
+                            ${reportHandledTime ? `<p><strong>处理时间：</strong>${new Date(reportHandledTime).toLocaleString()}</p>` : ''}
                         </div>
                     </div>
                     
                     <div class="report-detail-section">
                         <div class="report-detail-title">举报人信息</div>
                         <div class="report-detail-content">
-                            <p><strong>用户ID：</strong>${reporter.user_id}</p>
-                            <p><strong>用户名：</strong>${reporter.user_name || '未知'}</p>
-                            <p><strong>邮箱：</strong>${reporter.user_email || '未知'}</p>
+                            <p><strong>用户ID：</strong>${reporterUserId || '未知'}</p>
+                            <p><strong>用户名：</strong>${reporterUserName || '未知'}</p>
+                            <p><strong>邮箱：</strong>${reporterEmail || '未知'}</p>
                         </div>
                     </div>
                     
                     <div class="report-detail-section">
                         <div class="report-detail-title">举报理由</div>
                         <div class="report-detail-content">
-                            <p style="color:#e67e22;font-weight:500;">${report.reason}</p>
+                            <p style="color:#e67e22;font-weight:500;">${report.reason || '无'}</p>
                         </div>
                     </div>
                     
                     <div class="report-detail-section">
                         <div class="report-detail-title">被举报博客信息</div>
                         <div class="report-detail-content">
-                            <p><strong>博客ID：</strong>${blog.blog_id}</p>
-                            <p><strong>博客标题：</strong>${blog.blog_title || '无标题'}</p>
+                            <p><strong>博客ID：</strong>${blogId || '未知'}</p>
+                            <p><strong>博客标题：</strong>${blogTitle || '无标题'}</p>
                             <p><strong>博客内容：</strong></p>
                             <div style="background:#f1f1f1;padding:10px;border-radius:5px;margin:5px 0;max-height:200px;overflow-y:auto;">
-                                ${blog.blog_content || '无内容'}
+                                ${blogContent || '无内容'}
                             </div>
-                            <p><strong>发布时间：</strong>${new Date(blog.blog_create_time).toLocaleString()}</p>
-                            <p><strong>点赞数：</strong>${blog.like_count || 0}</p>
-                            <p><strong>收藏数：</strong>${blog.favorite_count || 0}</p>
-                            <p><strong>评论数：</strong>${blog.comment_count || 0}</p>
+                            <p><strong>发布时间：</strong>${blogCreateTime ? new Date(blogCreateTime).toLocaleString() : '未知'}</p>
+                            <p><strong>点赞数：</strong>${likeCount || 0}</p>
+                            <p><strong>收藏数：</strong>${favoriteCount || 0}</p>
+                            <p><strong>评论数：</strong>${commentCount || 0}</p>
                         </div>
                     </div>
                     
                     <div class="report-detail-section">
                         <div class="report-detail-title">博客作者信息</div>
                         <div class="report-detail-content">
-                            <p><strong>用户ID：</strong>${blogAuthor.user_id}</p>
-                            <p><strong>用户名：</strong>${blogAuthor.user_name || '未知'}</p>
-                            <p><strong>邮箱：</strong>${blogAuthor.user_email || '未知'}</p>
-                            <p><strong>注册时间：</strong>${new Date(blogAuthor.user_createdtime).toLocaleString()}</p>
+                            <p><strong>用户ID：</strong>${blogAuthorUserId || '未知'}</p>
+                            <p><strong>用户名：</strong>${blogAuthorUserName || '未知'}</p>
+                            <p><strong>邮箱：</strong>${blogAuthorEmail || '未知'}</p>
+                            <p><strong>注册时间：</strong>${blogAuthorCreatedTime ? new Date(blogAuthorCreatedTime).toLocaleString() : '未知'}</p>
                         </div>
                     </div>
                     
-                    ${report.report_status == 0 ? `
+                    ${reportStatus == 0 ? `
                         <div class="report-actions">
-                            <button class="report-action-btn ban-user" onclick="banUserFromDetail(${blogAuthor.user_id}, ${report.report_id})">
+                            <button class="report-action-btn ban-user" onclick="banUserFromDetail(${blogAuthorUserId}, ${reportId})">
                                 🚫 封禁用户
                             </button>
-                            <button class="report-action-btn ban-blog" onclick="banBlogFromDetail(${blog.blog_id}, ${report.report_id})">
+                            <button class="report-action-btn ban-blog" onclick="banBlogFromDetail(${blogId}, ${reportId})">
                                 🚫 封禁博客
                             </button>
-                            <button class="report-action-btn reject" onclick="rejectReportFromDetail(${report.report_id}, ${reporter.user_id})">
+                            <button class="report-action-btn reject" onclick="rejectReportFromDetail(${reportId}, ${reporterUserId})">
                                 ❌ 驳回举报
                             </button>
                 </div>
