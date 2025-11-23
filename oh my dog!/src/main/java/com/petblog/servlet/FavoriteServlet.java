@@ -35,6 +35,78 @@ public class FavoriteServlet extends HttpServlet {
             return;
         }
         
+        // 处理 /api/favorites/my 请求 - 获取当前用户收藏的博客详情列表
+        if (pathInfo != null && pathInfo.equals("/my")) {
+            try {
+                // 从session获取当前用户ID
+                Object userIdObj = request.getSession().getAttribute("userId");
+                String userIdParam = request.getParameter("userId");
+                
+                Integer userId = null;
+                if (userIdParam != null) {
+                    userId = Integer.valueOf(userIdParam);
+                } else if (userIdObj != null) {
+                    userId = userIdObj instanceof Integer ? (Integer) userIdObj : Integer.valueOf(userIdObj.toString());
+                }
+                
+                if (userId == null) {
+                    // 如果没有userId，返回空数组而不是错误
+                    out.print("[]");
+                    return;
+                }
+                
+                // 获取用户收藏的博客ID列表
+                List<Integer> blogIds = favoriteService.getFavoriteBlogIdsByUserId(userId, 1, 1000);
+                if (blogIds == null || blogIds.isEmpty()) {
+                    out.print("[]");
+                    return;
+                }
+                
+                // 获取博客详情
+                com.petblog.Service.BlogService blogService = new com.petblog.Service.BlogService();
+                java.util.List<java.util.Map<String, Object>> blogsWithDetails = new java.util.ArrayList<>();
+                
+                for (Integer blogId : blogIds) {
+                    com.petblog.model.Blog blog = blogService.getBlogById(blogId);
+                    if (blog != null) {
+                        java.util.Map<String, Object> blogMap = new java.util.HashMap<>();
+                        blogMap.put("blog_id", blog.getBlogId());
+                        blogMap.put("blog_title", blog.getBlogTitle());
+                        blogMap.put("blog_content", blog.getBlogContent());
+                        blogMap.put("blog_create_time", blog.getBlogCreateTime());
+                        blogMap.put("user_id", blog.getUserId());
+                        blogMap.put("user_name", blog.getUserName());
+                        blogMap.put("user_avatar_path", blog.getUserAvatarPath());
+                        
+                        // 获取收藏时间
+                        try {
+                            java.sql.Connection conn = com.petblog.util.JdbcUtil.getConnection();
+                            java.sql.PreparedStatement pstmt = conn.prepareStatement(
+                                "SELECT favorite_time FROM favorites WHERE user_id = ? AND blog_id = ? ORDER BY favorite_time DESC LIMIT 1");
+                            pstmt.setInt(1, userId);
+                            pstmt.setInt(2, blogId);
+                            java.sql.ResultSet rs = pstmt.executeQuery();
+                            if (rs.next()) {
+                                blogMap.put("favorite_time", rs.getTimestamp("favorite_time"));
+                            }
+                            com.petblog.util.JdbcUtil.close(conn, pstmt, rs);
+                        } catch (Exception e) {
+                            // 忽略错误
+                        }
+                        
+                        blogsWithDetails.add(blogMap);
+                    }
+                }
+                
+                out.print(objectMapper.writeValueAsString(blogsWithDetails));
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"error\":\"获取收藏列表失败: " + e.getMessage() + "\"}");
+                e.printStackTrace();
+            }
+            return;
+        }
+        
         if (pathInfo == null || pathInfo.equals("/")) {
             // 根据用户ID获取收藏列表
             String userIdParam = request.getParameter("userId");
@@ -91,6 +163,69 @@ public class FavoriteServlet extends HttpServlet {
             throws ServletException, IOException {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
+
+        String pathInfo = request.getPathInfo();
+        
+        // 处理 /api/favorites/toggle 请求
+        if (pathInfo != null && pathInfo.equals("/toggle")) {
+            try {
+                // 读取请求体
+                StringBuilder sb = new StringBuilder();
+                BufferedReader reader = request.getReader();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+
+                // 解析请求体
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> requestData = objectMapper.readValue(sb.toString(), 
+                    objectMapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, Object.class));
+                
+                Integer blogId = requestData.get("blog_id") != null ? 
+                    Integer.valueOf(requestData.get("blog_id").toString()) : null;
+                Integer userId = requestData.get("userId") != null ? 
+                    Integer.valueOf(requestData.get("userId").toString()) : null;
+                
+                if (blogId == null || userId == null) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"success\":false,\"error\":\"缺少必要参数: blog_id 或 userId\"}");
+                    return;
+                }
+
+                // 检查是否已收藏
+                boolean isFavorite = favoriteService.isBlogFavorite(userId, blogId);
+                
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                if (isFavorite) {
+                    // 取消收藏
+                    boolean removed = favoriteService.removeFavorite(userId, blogId);
+                    result.put("success", removed);
+                    result.put("favorited", false);
+                    result.put("message", removed ? "取消收藏成功" : "取消收藏失败");
+                } else {
+                    // 添加收藏
+                    Favorite favorite = new Favorite();
+                    favorite.setUserId(userId);
+                    favorite.setBlogId(blogId);
+                    favorite.setFavoriteTime(new Date());
+                    boolean added = favoriteService.addFavorite(favorite);
+                    result.put("success", added);
+                    result.put("favorited", added);
+                    result.put("message", added ? "收藏成功" : "收藏失败");
+                }
+                
+                out.print(objectMapper.writeValueAsString(result));
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                java.util.Map<String, Object> errorResult = new java.util.HashMap<>();
+                errorResult.put("success", false);
+                errorResult.put("error", "切换收藏状态失败: " + e.getMessage());
+                out.print(objectMapper.writeValueAsString(errorResult));
+                e.printStackTrace();
+            }
+            return;
+        }
 
         // 读取请求体
         StringBuilder sb = new StringBuilder();

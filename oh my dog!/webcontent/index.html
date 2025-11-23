@@ -1692,6 +1692,7 @@
             <div class="nav-links">
                 <a href="/petblog/index.html" class="active">首页</a>
                 <a href="/petblog/challenges.html" id="nav-topics">挑战</a>
+                <a href="/petblog/consultation.html">智能问诊</a>
                 <a href="/petblog/notifications.html" id="nav-notifications">通知<span id="notification-badge" class="notification-badge" style="display: none;">0</span></a>
                 <a href="/petblog/profile.html">个人中心</a>
                 <a href="javascript:void(0)" onclick="logout()">退出登录</a>
@@ -2028,19 +2029,28 @@
             else if (rank === 2) rankClass = 'top2';
             else if (rank === 3) rankClass = 'top3';
 
+            // 检查当前用户是否是挑战创建者
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            const isOwner = currentUser.userId && challenge.user_id && currentUser.userId === challenge.user_id;
+            
             return `
-                <div class="challenge-rank-item" onclick="window.open('/challenges.html', '_blank')">
-                    <div class="rank-number ${rankClass}">${rank}</div>
-                    <div class="challenge-rank-info">
-                        <div class="challenge-rank-title" title="${challenge.challenge_title}">
-                            ${challenge.challenge_title}
-                        </div>
-                        <div class="challenge-rank-heat">
-                            <span>🔥</span>
-                            <span>${formatHeat(challenge.heat || 0)}</span>
-                        </div>
-                        <div class="challenge-rank-status ${statusClass}">
-                            ${status.text}
+                <div class="challenge-rank-item" style="position: relative;">
+                    <div style="position: absolute; top: 5px; right: 5px; z-index: 10;" onclick="event.stopPropagation();">
+                        ${isOwner ? `<button onclick="deleteChallenge(${challenge.challenge_id}, this)" style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">删除</button>` : ''}
+                    </div>
+                    <div onclick="window.open('/petblog/challenges.html', '_blank')" style="cursor: pointer;">
+                        <div class="rank-number ${rankClass}">${rank}</div>
+                        <div class="challenge-rank-info">
+                            <div class="challenge-rank-title" title="${challenge.challenge_title}">
+                                ${challenge.challenge_title}
+                            </div>
+                            <div class="challenge-rank-heat">
+                                <span>🔥</span>
+                                <span>${formatHeat(challenge.heat || 0)}</span>
+                            </div>
+                            <div class="challenge-rank-status ${statusClass}">
+                                ${status.text}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2070,6 +2080,34 @@
                 return (heat / 1000).toFixed(1) + 'k';
             } else {
                 return heat.toString();
+            }
+        }
+
+        // 删除挑战
+        async function deleteChallenge(challengeId, buttonElement) {
+            if (!confirm('确定要删除这个挑战吗？删除后将无法恢复。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/petblog/api/challenges/${challengeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('挑战删除成功');
+                    loadHotChallenges(); // 重新加载挑战列表
+                } else {
+                    alert('删除失败: ' + (result.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('删除挑战失败:', error);
+                alert('删除挑战失败: ' + error.message);
             }
         }
 
@@ -2411,11 +2449,16 @@
                         e.target.tagName === 'BUTTON' ||
                         e.target.closest('button') ||
                         e.target.tagName === 'A' ||
-                        (e.target.classList && e.target.classList.contains('comment-input'))
+                        e.target.tagName === 'INPUT' ||
+                        (e.target.classList && (e.target.classList.contains('comment-input') || e.target.classList.contains('comment-submit-btn')))
                     ) {
                         return;
                     }
-                    window.location.href = `/blog-detail.html?id=${blog.blogId}`;
+                    // 如果点击的是评论区域，不跳转
+                    if (e.target.closest('.comments-section') || e.target.closest('.comment-item')) {
+                        return;
+                    }
+                    window.location.href = `/petblog/blog-detail.html?id=${blog.blogId}`;
                 };
                 
                 // 处理附件显示
@@ -2447,11 +2490,11 @@
                             <div style="display:flex;align-items:center;justify-content:space-between;">
                             <span class="blog-user-name">${blog.userName}</span>
                                 ${currentUser && currentUser.userId === blog.userId ? `
-                                    <button class="delete-blog-btn" onclick="deleteBlog(${blog.blogId}, this)" style="margin-left:10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;" title="删除博客">
+                                    <button class="delete-blog-btn" onclick="event.stopPropagation(); deleteBlog(${blog.blogId}, this)" style="margin-left:10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; z-index: 10; position: relative;" title="删除博客">
                                         🗑️ 删除
                                     </button>
                                 ` : `
-                                    <button class="${followBtnClass}" data-user-id="${blog.userId}" onclick="toggleFollow(${blog.userId}, this)" style="margin-left:10px;">
+                                    <button class="${followBtnClass}" data-user-id="${blog.userId}" onclick="event.stopPropagation(); toggleFollow(${blog.userId}, this)" style="margin-left:10px; z-index: 10; position: relative;">
                                         <span class="follow-icon">👤</span>
                                         <span>${blog.is_followed ? '已关注' : '关注'}</span>
                                     </button>
@@ -2483,24 +2526,24 @@
                         ${(blog.topics||[]).map(t=>`<span class="blog-topic">#${t}</span>`).join('')}
                     </div>
                     <div class="blog-actions">
-                        <button class="${likeBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleLike(${blog.blogId}, this)">
+                        <button class="${likeBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleLike(${blog.blogId}, this)">
                             <span class="like-icon">👍</span>
                             <span class="like-count">${blog.likeCount || 0}</span>
                         </button>
-                        <button class="${favoriteBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleFavorite(${blog.blogId}, this)">
+                        <button class="${favoriteBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleFavorite(${blog.blogId}, this)">
                             <span class="favorite-icon">⭐</span>
                             <span class="favorite-count">${blog.favoriteCount || 0}</span>
                         </button>
-                        <button class="${repostBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleRepost(${blog.blogId}, this)">
+                        <button class="${repostBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleRepost(${blog.blogId}, this)">
                             <span class="repost-icon">🔄</span>
                             <span class="repost-count">${blog.repostCount || 0}</span>
                         </button>
-                        <button class="comment-btn" data-blog-id="${blog.blogId}" onclick="toggleComments(${blog.blogId}, this)">
+                        <button class="comment-btn" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleComments(${blog.blogId}, this)">
                             <span class="comment-icon">💬</span>
                             <span class="comment-count">${blog.commentCount || 0}</span>
                         </button>
                         ${currentUser && currentUser.userId !== blog.userId ? `
-                            <button class="action-btn report-btn" onclick="showReportModal(${blog.blogId})" style="color:#e74c3c;">
+                            <button class="action-btn report-btn" onclick="event.stopPropagation(); showReportModal(${blog.blogId})" style="color:#e74c3c;">
                                 <span>🚩</span> 举报
                             </button>
                         ` : ''}
@@ -2519,7 +2562,7 @@
                     <div class="comments-section" id="comments-${blog.blogId}">
                         <div class="comment-input-area">
                             <input type="text" class="comment-input" placeholder="写下你的评论..." maxlength="500">
-                            <button class="comment-submit-btn" onclick="submitComment(${blog.blogId}, this)">发表</button>
+                            <button class="comment-submit-btn" onclick="event.stopPropagation(); submitComment(${blog.blogId}, this)">发表</button>
                         </div>
                         <div class="comments-list" id="comments-list-${blog.blogId}">
                             <!-- 评论列表将通过JS动态加载 -->
@@ -2541,12 +2584,21 @@
         // 点赞/取消点赞功能
         async function toggleLike(blogId, button) {
             try {
+                if (!currentUser || !currentUser.userId) {
+                    await loadCurrentUser(); // 确保获取当前用户信息
+                }
+                
+                if (!currentUser || !currentUser.userId) {
+                    alert('请先登录');
+                    return;
+                }
+                
                 const response = await fetch('/petblog/api/likes/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ blog_id: blogId })
+                    body: JSON.stringify({ blog_id: blogId, userId: currentUser.userId })
                 });
                 
                 const result = await response.json();
@@ -2577,12 +2629,21 @@
         // 收藏/取消收藏功能
         async function toggleFavorite(blogId, button) {
             try {
+                if (!currentUser || !currentUser.userId) {
+                    await loadCurrentUser(); // 确保获取当前用户信息
+                }
+                
+                if (!currentUser || !currentUser.userId) {
+                    alert('请先登录');
+                    return;
+                }
+                
                 const response = await fetch('/petblog/api/favorites/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ blog_id: blogId })
+                    body: JSON.stringify({ blog_id: blogId, userId: currentUser.userId })
                 });
                 
                 const result = await response.json();
@@ -2613,12 +2674,21 @@
         // 转发/取消转发功能
         async function toggleRepost(blogId, button) {
             try {
+                if (!currentUser || !currentUser.userId) {
+                    await loadCurrentUser(); // 确保获取当前用户信息
+                }
+                
+                if (!currentUser || !currentUser.userId) {
+                    alert('请先登录');
+                    return;
+                }
+                
                 const response = await fetch('/petblog/api/reposts/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ blog_id: blogId })
+                    body: JSON.stringify({ blog_id: blogId, userId: currentUser.userId })
                 });
 
                 const result = await response.json();
@@ -2753,7 +2823,10 @@
             const commentsList = document.getElementById(`comments-list-${blogId}`);
             commentsList.innerHTML = '';
             try {
-                const response = await fetch(`/petblog/api/comments/${blogId}`);
+                const response = await fetch(`/petblog/api/replies/${blogId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 const comments = await response.json();
                 if (!comments || comments.length === 0) {
                     commentsList.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">暂无评论</div>';
@@ -2777,15 +2850,25 @@
                     div.style.borderLeft = comment._level > 0 ? '3px solid #7bc5b7' : 'none';
                     div.style.background = 'none';
                     div.style.paddingLeft = '0';
+                    // 处理字段名映射（后端可能返回驼峰命名，前端期望下划线命名）
+                    const userName = comment.user_name || comment.userName || '未知用户';
+                    const userAvatarPath = comment.user_avatar_path || comment.userAvatarPath || '/petblog/images/Default avatar.png';
+                    const replyContent = comment.reply_content || comment.replyContent || '';
+                    const replyCreatedtime = comment.reply_createdtime || comment.replyCreatedtime;
+                    const userId = comment.user_id || comment.userId;
+                    const replyId = comment.reply_id || comment.replyId;
+                    const blogId = comment.blog_id || comment.blogId;
+                    const parentUserName = comment.parent_user_name || comment.parentUserName;
+                    
                     div.innerHTML = `
-                        <img class="comment-avatar" src="${comment.user_avatar_path || '/petblog/images/Default avatar.png'}" alt="头像">
+                        <img class="comment-avatar" src="${normalizeAvatarPath(userAvatarPath)}" alt="头像">
                         <div class="comment-content">
-                            <div class="comment-user-name">${comment.user_name}</div>
-                            <div class="comment-text">${comment._level > 0 && comment.parent_user_name ? `<span style='color:#1abc9c;font-weight:bold;'>回复 @${comment.parent_user_name}：</span>` : ''}${comment.reply_content}</div>
-                            <div class="comment-time">${new Date(comment.reply_createdtime).toLocaleString()}</div>
+                            <div class="comment-user-name">${userName}</div>
+                            <div class="comment-text">${comment._level > 0 && parentUserName ? `<span style='color:#1abc9c;font-weight:bold;'>回复 @${parentUserName}：</span>` : ''}${replyContent}</div>
+                            <div class="comment-time">${replyCreatedtime ? new Date(replyCreatedtime).toLocaleString() : ''}</div>
                             <div class="comment-actions">
                                 <button class="comment-reply-btn">回复</button>
-                                ${(getCurrentUser() && getCurrentUser().user_id === comment.user_id) ? `<button class="comment-delete-btn" onclick="deleteComment(${comment.reply_id}, ${comment.blog_id})">删除</button>` : ''}
+                                ${(getCurrentUser() && getCurrentUser().userId === userId) ? `<button class="comment-delete-btn" onclick="deleteComment(${replyId}, ${blogId})">删除</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -2799,8 +2882,9 @@
                         replyBox.style.display = 'flex';
                         replyBox.style.gap = '8px';
                         replyBox.style.margin = '8px 0 0 0';
+                        const replyUserName = comment.user_name || comment.userName || '用户';
                         replyBox.innerHTML = `
-                            <input type="text" class="comment-input" placeholder="回复 @${comment.user_name}..." style="flex:1;">
+                            <input type="text" class="comment-input" placeholder="回复 @${replyUserName}..." style="flex:1;">
                             <button class="comment-submit-btn">发表</button>
                         `;
                         replyBox.querySelector('.comment-submit-btn').onclick = async function() {
@@ -2810,22 +2894,48 @@
                             this.disabled = true;
                             this.textContent = '发表中...';
                             try {
-                                const response = await fetch('/petblog/api/comments/add', {
+                                if (!currentUser || !currentUser.userId) {
+                                    await loadCurrentUser();
+                                }
+                                if (!currentUser || !currentUser.userId) {
+                                    alert('请先登录');
+                                    this.disabled = false;
+                                    this.textContent = '发表';
+                                    return;
+                                }
+                                
+                                const blogIdForReply = comment.blog_id || comment.blogId;
+                                const parentReplyId = comment.reply_id || comment.replyId;
+                                
+                                const response = await fetch('/petblog/api/replies', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        blog_id: comment.blog_id,
-                                        comment_content: content,
-                                        parent_comment_id: comment.reply_id
+                                        blogId: blogIdForReply,
+                                        userId: currentUser.userId,
+                                        replyContent: content,
+                                        parentReply: parentReplyId
                                     })
                                 });
-                                const result = await response.json();
-                                if (result.success) {
-                                    await loadComments(comment.blog_id);
+                                
+                                if (response.status === 201 || response.ok) {
+                                    input.value = '';
+                                    // 重新加载评论（延迟一下确保数据库已更新）
+                                    setTimeout(async () => {
+                                        await loadComments(blogIdForReply);
+                                    }, 100);
+                                    // 更新评论数量
+                                    const commentCountSpan = document.querySelector(`button[data-blog-id="${blogIdForReply}"] .comment-count`);
+                                    if (commentCountSpan) {
+                                        const currentCount = parseInt(commentCountSpan.textContent) || 0;
+                                        commentCountSpan.textContent = currentCount + 1;
+                                    }
                                 } else {
-                                    alert(result.message || '发表评论失败');
+                                    const result = await response.json();
+                                    alert(result.error || result.message || '发表评论失败');
                                 }
                             } catch (e) {
+                                console.error('发表回复失败:', e);
                                 alert('网络错误，请重试');
                             } finally {
                                 this.disabled = false;
@@ -2884,37 +2994,52 @@
             button.textContent = '发表中...';
 
             try {
+                if (!currentUser || !currentUser.userId) {
+                    await loadCurrentUser(); // 确保获取当前用户信息
+                }
+                
+                if (!currentUser || !currentUser.userId) {
+                    alert('请先登录');
+                    button.disabled = false;
+                    button.textContent = '发表';
+                    return;
+                }
+                
                 console.log('发送评论请求...');
-                const response = await fetch('/petblog/api/comments/add', {
+                const response = await fetch('/petblog/api/replies', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        blog_id: blogId,
-                        comment_content: content,
-                        parent_comment_id: input.dataset.parentId || null
+                        blogId: blogId,
+                        userId: currentUser.userId,
+                        replyContent: content,
+                        parentReply: input.dataset.parentId ? parseInt(input.dataset.parentId) : null
                     })
                 });
 
                 console.log('收到响应，状态:', response.status);
-                const result = await response.json();
-                console.log('响应结果:', result);
-
-                if (result.success) {
+                
+                if (response.status === 201 || response.ok) {
+                    const result = await response.json();
+                    console.log('响应结果:', result);
                     console.log('评论发表成功');
                     input.value = '';
                     input.dataset.parentId = '';
                     input.placeholder = '写下你的评论...';
 
-                    // 重新加载评论
-                    await loadComments(blogId);
+                    // 重新加载评论（延迟一下确保数据库已更新）
+                    setTimeout(async () => {
+                        await loadComments(blogId);
+                    }, 200);
 
                     // 更新评论数量
                     updateCommentCount(blogId, 1);
                 } else {
-                    console.error('评论发表失败:', result.message);
-                    alert(result.message || '发表评论失败');
+                    const result = await response.json();
+                    console.error('评论发表失败:', result.error || result.message);
+                    alert(result.error || result.message || '发表评论失败');
                 }
             } catch (error) {
                 console.error('发表评论失败:', error);
@@ -2951,8 +3076,10 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // 重新加载评论
-                    await loadComments(blogId);
+                    // 重新加载评论（延迟一下确保数据库已更新）
+                    setTimeout(async () => {
+                        await loadComments(blogId);
+                    }, 200);
 
                     // 更新评论数量
                     updateCommentCount(blogId, -1);
@@ -3043,15 +3170,19 @@
             button.textContent = '删除中...';
 
             try {
-                const response = await fetch('/petblog/api/blogs/delete', {
-                    method: 'POST',
+                const response = await fetch(`/petblog/api/blogs/${blogId}`, {
+                    method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ blog_id: blogId })
+                    }
                 });
 
-                const result = await response.json();
+                let result;
+                if (response.status === 204) {
+                    result = { success: true, message: '删除成功' };
+                } else {
+                    result = await response.json();
+                }
 
                 if (result.success) {
                     // 删除成功，重新加载博客列表以更新转发数量等信息
@@ -3128,21 +3259,39 @@
         document.getElementById('submitReportBtn').onclick = async function() {
           const reason = document.getElementById('reportReason').value.trim();
           if (!reason) { alert('请输入举报理由'); return; }
+          
+          // 获取当前登录用户
+          const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+          if (!currentUser || !currentUser.userId) {
+            alert('请先登录后再进行举报');
+            return;
+          }
+          
           const blogId = window._reportBlogId;
+          if (!blogId) {
+            alert('举报失败：缺少博客ID');
+            return;
+          }
+          
           try {
             const res = await fetch('/petblog/api/reports/add', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ blog_id: blogId, reason })
+              body: JSON.stringify({ 
+                blog_id: blogId, 
+                reason: reason,
+                userId: currentUser.userId 
+              })
             });
             const result = await res.json();
             if (result.success) {
               alert('举报成功，感谢您的反馈！');
               hideReportModal();
             } else {
-              alert(result.message || '举报失败');
+              alert(result.error || result.message || '举报失败');
             }
           } catch (e) {
+            console.error('举报错误:', e);
             alert('网络错误，请稍后重试');
           }
         };
@@ -3303,7 +3452,10 @@
             const blogList = document.getElementById('blogList');
             blogList.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">加载中...</div>';
             try {
-                const res = await fetch(`/api/blogs/by-topic?topic=${encodeURIComponent(topic)}`);
+                const res = await fetch(`/petblog/api/blogs/by-topic?topic=${encodeURIComponent(topic)}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
                 const blogs = await res.json();
                 if (!blogs || blogs.length === 0) {
                     blogList.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">暂无该话题的博客</div>';
@@ -3316,10 +3468,21 @@
                     card.className = 'blog-card';
                     card.style.cursor = 'pointer';
                     card.onclick = (e) => {
-                        if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') {
+                        // 如果点击的是按钮、链接，或输入框（评论输入），不跳转
+                        if (
+                            e.target.tagName === 'BUTTON' ||
+                            e.target.closest('button') ||
+                            e.target.tagName === 'A' ||
+                            e.target.tagName === 'INPUT' ||
+                            (e.target.classList && (e.target.classList.contains('comment-input') || e.target.classList.contains('comment-submit-btn')))
+                        ) {
                             return;
                         }
-                        window.location.href = `/blog-detail.html?id=${blog.blogId}`;
+                        // 如果点击的是评论区域，不跳转
+                        if (e.target.closest('.comments-section') || e.target.closest('.comment-item')) {
+                            return;
+                        }
+                        window.location.href = `/petblog/blog-detail.html?id=${blog.blogId}`;
                     };
                     // 处理附件显示
                     let attachmentHtml = '';
@@ -3345,11 +3508,11 @@
                                 <div style="display:flex;align-items:center;justify-content:space-between;">
                                 <span class="blog-user-name">${blog.userName}</span>
                                     ${window.currentUser && window.currentUser.userId === blog.userId ? `
-                                        <button class="delete-blog-btn" onclick="deleteBlog(${blog.blogId}, this)" style="margin-left:10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;" title="删除博客">
+                                        <button class="delete-blog-btn" onclick="event.stopPropagation(); deleteBlog(${blog.blogId}, this)" style="margin-left:10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; z-index: 10; position: relative;" title="删除博客">
                                             🗑️ 删除
                                         </button>
                                     ` : `
-                                        <button class="${followBtnClass}" data-user-id="${blog.userId}" onclick="toggleFollow(${blog.userId}, this)" style="margin-left:10px;">
+                                        <button class="${followBtnClass}" data-user-id="${blog.userId}" onclick="event.stopPropagation(); toggleFollow(${blog.userId}, this)" style="margin-left:10px; z-index: 10; position: relative;">
                                             <span class="follow-icon">👤</span>
                                             <span>${blog.is_followed ? '已关注' : '关注'}</span>
                                         </button>
@@ -3381,34 +3544,34 @@
                             ${(blog.topics||[]).map(t=>`<span class="blog-topic">#${t}</span>`).join('')}
                         </div>
                         <div class="blog-actions">
-                            <button class="${likeBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleLike(${blog.blogId}, this)">
+                            <button class="${likeBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleLike(${blog.blogId}, this)">
                                 <span class="like-icon">👍</span>
                                 <span class="like-count">${blog.like_count || 0}</span>
                             </button>
-                            <button class="${favoriteBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleFavorite(${blog.blogId}, this)">
+                            <button class="${favoriteBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleFavorite(${blog.blogId}, this)">
                                 <span class="favorite-icon">⭐</span>
                                 <span class="favorite-count">${blog.favorite_count || 0}</span>
                             </button>
-                            <button class="${repostBtnClass}" data-blog-id="${blog.blogId}" onclick="toggleRepost(${blog.blogId}, this)">
+                            <button class="${repostBtnClass}" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleRepost(${blog.blogId}, this)">
                                 <span class="repost-icon">🔄</span>
                                 <span class="repost-count">${blog.repost_count || 0}</span>
                             </button>
-                            <button class="comment-btn" data-blog-id="${blog.blogId}" onclick="toggleComments(${blog.blogId}, this)">
+                            <button class="comment-btn" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); toggleComments(${blog.blogId}, this)">
                                 <span class="comment-icon">💬</span>
                                 <span class="comment-count">${blog.comment_count || 0}</span>
                             </button>
                             ${window.currentUser && window.currentUser.userId !== blog.userId ? `
-                                <button class="action-btn report-btn" onclick="showReportModal(${blog.blogId})" style="color:#e74c3c;">
+                                <button class="action-btn report-btn" onclick="event.stopPropagation(); showReportModal(${blog.blogId})" style="color:#e74c3c; z-index: 10; position: relative;">
                                     <span>🚩</span> 举报
                                 </button>
                             ` : ''}
                             ${(() => {
                                 return window.currentUser && window.currentUser.userId === blog.userId ? `
-                                    <button class="edit-btn" data-blog-id="${blog.blogId}" onclick="editBlog(${blog.blogId})">
+                                    <button class="edit-btn" data-blog-id="${blog.blogId}" onclick="event.stopPropagation(); editBlog(${blog.blogId})" style="z-index: 10; position: relative;">
                                         <span class="edit-icon">✏️</span>
                                         <span>编辑</span>
                                     </button>
-                                    <button class="participate-challenge-btn" onclick="showChallengeSelectModal(${blog.blogId})" style="margin-left:10px;background:#ff9800;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;">
+                                    <button class="participate-challenge-btn" onclick="event.stopPropagation(); showChallengeSelectModal(${blog.blogId})" style="margin-left:10px;background:#ff9800;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px; z-index: 10; position: relative;">
                                         🏆 参与挑战
                                     </button>
                                 ` : '';
@@ -3417,7 +3580,7 @@
                         <div class="comments-section" id="comments-${blog.blogId}">
                             <div class="comment-input-area">
                                 <input type="text" class="comment-input" placeholder="写下你的评论..." maxlength="500">
-                                <button class="comment-submit-btn" onclick="submitComment(${blog.blogId}, this)">发表</button>
+                                <button class="comment-submit-btn" onclick="event.stopPropagation(); submitComment(${blog.blogId}, this)">发表</button>
                             </div>
                             <div class="comments-list" id="comments-list-${blog.blogId}"></div>
                         </div>
@@ -3436,18 +3599,24 @@
             asideList.innerHTML = '<li style="color:#888">加载中...</li>';
             try {
                 const res = await fetch('/petblog/api/topics/all');
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
                 const topics = await res.json();
                 if (Array.isArray(topics) && topics.length > 0) {
                     asideList.innerHTML = topics.map(t => {
-                        const icon = getTopicIcon(t.topic_name);
-                        return `<li><a class="topic-aside-link" href="#" data-topic="${t.topic_name}"><span>${icon}</span>${t.topic_name}</a></li>`;
+                        // 处理字段名映射（后端可能返回驼峰命名，前端期望下划线命名）
+                        const topicName = t.topic_name || t.topicName || '';
+                        const icon = getTopicIcon(topicName);
+                        return `<li><a class="topic-aside-link" href="#" data-topic="${topicName}"><span>${icon}</span>${topicName}</a></li>`;
                     }).join('');
                     bindTopicAsideLinks(); // 重新绑定点击事件
                 } else {
                     asideList.innerHTML = '<li style="color:#888">暂无话题</li>';
                 }
             } catch (e) {
-                asideList.innerHTML = '<li style="color:#e74c3c">加载失败</li>';
+                console.error('加载话题失败:', e);
+                asideList.innerHTML = '<li style="color:#e74c3c">加载失败: ' + (e.message || '未知错误') + '</li>';
             }
         }
         document.addEventListener('DOMContentLoaded', renderAsideTopics);

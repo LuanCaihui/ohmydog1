@@ -24,9 +24,13 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
 
     @Override
     public List<Reply> findByCommentId(Integer commentId, int pageNum, int pageSize) {
-        String sql = "SELECT user_id, blog_id, reply_id, parentReply, reply_createdtime, reply_content, is_visible FROM replies WHERE parentReply = ? AND is_visible = 1 ORDER BY reply_createdtime ASC LIMIT ? OFFSET ?";
+        String sql = "SELECT r.user_id, r.blog_id, r.reply_id, r.parentReply, r.reply_createdtime, r.reply_content, r.is_visible, " +
+                     "u.user_name, u.user_avatar_path " +
+                     "FROM replies r " +
+                     "LEFT JOIN users u ON r.user_id = u.user_id " +
+                     "WHERE r.parentReply = ? AND r.is_visible = 1 ORDER BY r.reply_createdtime ASC LIMIT ? OFFSET ?";
         try {
-            return queryForList(sql, this::mapRowToReply, commentId, pageSize, (pageNum - 1) * pageSize);
+            return queryForList(sql, this::mapRowToReplyWithUser, commentId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
             return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据评论ID查询回复列表", null);
         }
@@ -39,6 +43,20 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
             return queryForList(sql, this::mapRowToReply, userId, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
             return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据用户ID查询回复列表", null);
+        }
+    }
+
+    @Override
+    public List<Reply> findByBlogId(Integer blogId) {
+        String sql = "SELECT r.user_id, r.blog_id, r.reply_id, r.parentReply, r.reply_createdtime, r.reply_content, r.is_visible, " +
+                     "u.user_name, u.user_avatar_path " +
+                     "FROM replies r " +
+                     "LEFT JOIN users u ON r.user_id = u.user_id " +
+                     "WHERE r.blog_id = ? AND r.parentReply IS NULL AND r.is_visible = 1 ORDER BY r.reply_createdtime ASC";
+        try {
+            return queryForList(sql, this::mapRowToReplyWithUser, blogId);
+        } catch (SQLException e) {
+            return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据博客ID查询评论列表", null);
         }
     }
 
@@ -130,10 +148,31 @@ public class ReplyDAOImpl extends BaseJdbcDAO<Reply> implements ReplyDAO {
         reply.setUserId(rs.getInt("user_id"));
         reply.setBlogId(rs.getInt("blog_id"));
         reply.setReplyId(rs.getInt("reply_id"));
-        reply.setParentReply(rs.getInt("parentReply"));
-        reply.setReplyCreatedtime(rs.getDate("reply_createdtime"));
+        Integer parentReply = rs.getObject("parentReply") != null ? rs.getInt("parentReply") : null;
+        reply.setParentReply(parentReply);
+        reply.setReplyCreatedtime(rs.getTimestamp("reply_createdtime"));
         reply.setReplyContent(rs.getString("reply_content"));
         reply.setIsVisible(rs.getInt("is_visible"));
+        return reply;
+    }
+
+    private Reply mapRowToReplyWithUser(ResultSet rs) throws SQLException {
+        Reply reply = mapRowToReply(rs);
+        // 使用反射添加用户信息字段（如果Reply类有这些字段）
+        try {
+            java.lang.reflect.Field userNameField = Reply.class.getDeclaredField("userName");
+            userNameField.setAccessible(true);
+            userNameField.set(reply, rs.getString("user_name"));
+        } catch (Exception e) {
+            // 如果Reply类没有userName字段，忽略
+        }
+        try {
+            java.lang.reflect.Field userAvatarPathField = Reply.class.getDeclaredField("userAvatarPath");
+            userAvatarPathField.setAccessible(true);
+            userAvatarPathField.set(reply, rs.getString("user_avatar_path"));
+        } catch (Exception e) {
+            // 如果Reply类没有userAvatarPath字段，忽略
+        }
         return reply;
     }
 }

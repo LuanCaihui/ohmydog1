@@ -109,6 +109,17 @@ public boolean deleteUser(Integer userId) {
     }
 
     /**
+     * 更新用户密码
+     * @param userId 用户ID
+     * @param newPassword 新密码（明文）
+     * @return 更新成功返回true，失败返回false
+     */
+    public boolean updatePassword(Integer userId, String newPassword) {
+        int result = userDAO.updatePassword(userId, newPassword);
+        return result > 0;
+    }
+
+    /**
      * 用户登录验证
      * @param username 用户名
      * @param password 密码（明文）

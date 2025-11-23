@@ -85,6 +85,39 @@ protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 return;
             }
             Integer columnId = Integer.valueOf(splits[1]);
+            
+            // 处理 /api/columns/{columnId}/blogs 路径
+            if (splits.length >= 3 && "blogs".equals(splits[2])) {
+                // 获取专栏中的博客列表
+                com.petblog.Service.BlogColumnService blogColumnService = new com.petblog.Service.BlogColumnService();
+                java.util.List<com.petblog.model.BlogColumn> blogColumns = blogColumnService.getBlogColumnsByColumnId(columnId);
+                
+                if (blogColumns == null || blogColumns.isEmpty()) {
+                    out.print("[]");
+                    return;
+                }
+                
+                // 获取博客详情
+                com.petblog.Service.BlogService blogService = new com.petblog.Service.BlogService();
+                java.util.List<java.util.Map<String, Object>> blogsWithDetails = new java.util.ArrayList<>();
+                
+                for (com.petblog.model.BlogColumn blogColumn : blogColumns) {
+                    com.petblog.model.Blog blog = blogService.getBlogById(blogColumn.getBlogId());
+                    if (blog != null) {
+                        java.util.Map<String, Object> blogMap = new java.util.HashMap<>();
+                        blogMap.put("blog_id", blog.getBlogId());
+                        blogMap.put("blog_title", blog.getBlogTitle());
+                        blogMap.put("blog_content", blog.getBlogContent());
+                        blogMap.put("blog_create_time", blog.getBlogCreateTime());
+                        blogMap.put("user_id", blog.getUserId());
+                        blogMap.put("user_name", blog.getUserName());
+                        blogsWithDetails.add(blogMap);
+                    }
+                }
+                
+                out.print(objectMapper.writeValueAsString(blogsWithDetails));
+                return;
+            }
 
             // 调用ColumnService获取专栏详情的方法
             Column column = columnService.getColumnById(columnId);
@@ -97,6 +130,10 @@ protected void doGet(HttpServletRequest request, HttpServletResponse response)
         } catch (NumberFormatException e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             out.print("{\"error\":\"Invalid column ID format\"}");
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            out.print("{\"error\":\"获取专栏博客失败: " + e.getMessage() + "\"}");
+            e.printStackTrace();
         }
     }
 }

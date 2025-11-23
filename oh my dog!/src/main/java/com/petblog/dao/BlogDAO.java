@@ -15,4 +15,5 @@ public interface BlogDAO {
     List<Blog> findByAuthorId(int authorId)throws SQLException;
     List<Blog> findByTopicId(int topicId)throws SQLException;
     List<Blog> findRecentBlogs(int limit)throws SQLException;
+    int countAll() throws SQLException;
 }

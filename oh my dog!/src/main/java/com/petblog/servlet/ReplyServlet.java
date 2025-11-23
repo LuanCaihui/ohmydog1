@@ -28,8 +28,77 @@ public class ReplyServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
 
         String pathInfo = request.getPathInfo();
+        
+        // 处理 /api/replies/{blogId} 请求（兼容 /api/comments/{blogId}）
+        if (pathInfo != null && pathInfo.length() > 1) {
+            try {
+                String[] splits = pathInfo.split("/");
+                if (splits.length >= 2 && splits[1] != null && !splits[1].isEmpty()) {
+                    Integer blogId = Integer.valueOf(splits[1]);
+                    List<Reply> replies = replyService.getRepliesByBlogId(blogId);
+                    if (replies == null) {
+                        replies = new java.util.ArrayList<>();
+                    }
+                    // 构建评论树结构
+                    List<Reply> topLevelReplies = new java.util.ArrayList<>();
+                    java.util.Map<Integer, Reply> replyMap = new java.util.HashMap<>();
+                    
+                    // 先收集所有回复
+                    for (Reply reply : replies) {
+                        replyMap.put(reply.getReplyId(), reply);
+                    }
+                    
+                    // 获取所有一级评论
+                    List<Reply> allReplies = replyService.getRepliesByBlogId(blogId);
+                    if (allReplies == null) {
+                        allReplies = new java.util.ArrayList<>();
+                    }
+                    
+                    // 获取所有子回复
+                    List<Reply> allChildReplies = new java.util.ArrayList<>();
+                    for (Reply reply : allReplies) {
+                        List<Reply> childReplies = replyService.getRepliesByCommentId(reply.getReplyId(), 1, 1000);
+                        if (childReplies != null) {
+                            allChildReplies.addAll(childReplies);
+                        }
+                    }
+                    allReplies.addAll(allChildReplies);
+                    
+                    // 构建map
+                    replyMap.clear();
+                    for (Reply reply : allReplies) {
+                        replyMap.put(reply.getReplyId(), reply);
+                    }
+                    
+                    // 构建树结构 - 只添加一级评论
+                    for (Reply reply : allReplies) {
+                        if (reply.getParentReply() == null) {
+                            topLevelReplies.add(reply);
+                        }
+                    }
+                    
+                    // 为每个一级评论添加子评论
+                    for (Reply topReply : topLevelReplies) {
+                        addChildren(topReply, replyMap);
+                    }
+                    
+                    // 转换为Map格式，包含用户信息
+                    List<java.util.Map<String, Object>> replyMaps = new java.util.ArrayList<>();
+                    for (Reply topReply : topLevelReplies) {
+                        replyMaps.add(convertReplyToMap(topReply));
+                    }
+                    
+                    out.print(objectMapper.writeValueAsString(replyMaps));
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                // 如果不是数字，继续处理其他路径
+            }
+        }
+        
         if (pathInfo == null || pathInfo.equals("/")) {
             // 可以根据查询参数获取特定评论的回复列表
+            String blogIdParam = request.getParameter("blogId");
             String commentIdParam = request.getParameter("commentId");
             String userIdParam = request.getParameter("userId");
             String pageNumParam = request.getParameter("pageNum");
@@ -39,7 +108,14 @@ public class ReplyServlet extends HttpServlet {
                 int pageNum = pageNumParam != null ? Integer.parseInt(pageNumParam) : 1;
                 int pageSize = pageSizeParam != null ? Integer.parseInt(pageSizeParam) : 10;
 
-                if (commentIdParam != null) {
+                if (blogIdParam != null) {
+                    Integer blogId = Integer.valueOf(blogIdParam);
+                    List<Reply> replies = replyService.getRepliesByBlogId(blogId);
+                    if (replies == null) {
+                        replies = new java.util.ArrayList<>();
+                    }
+                    out.print(objectMapper.writeValueAsString(replies));
+                } else if (commentIdParam != null) {
                     Integer commentId = Integer.valueOf(commentIdParam);
                     List<Reply> replies = replyService.getRepliesByCommentId(commentId, pageNum, pageSize);
                     out.print(objectMapper.writeValueAsString(replies));
@@ -49,7 +125,7 @@ public class ReplyServlet extends HttpServlet {
                     out.print(objectMapper.writeValueAsString(replies));
                 } else {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    out.print("{\"error\":\"commentId or userId is required\"}");
+                    out.print("{\"error\":\"blogId, commentId or userId is required\"}");
                 }
             } catch (NumberFormatException e) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -234,5 +310,108 @@ public class ReplyServlet extends HttpServlet {
                 out.print("{\"error\":\"Invalid reply ID format\"}");
             }
         }
+    }
+
+    /**
+     * 递归添加子评论
+     */
+    private void addChildren(Reply parent, java.util.Map<Integer, Reply> replyMap) {
+        java.util.List<Reply> children = new java.util.ArrayList<>();
+        for (Reply reply : replyMap.values()) {
+            if (reply.getParentReply() != null && reply.getParentReply().equals(parent.getReplyId())) {
+                children.add(reply);
+                addChildren(reply, replyMap);
+            }
+        }
+        // 使用反射设置children字段（如果Reply类有children字段）
+        try {
+            java.lang.reflect.Field childrenField = Reply.class.getDeclaredField("children");
+            childrenField.setAccessible(true);
+            childrenField.set(parent, children);
+        } catch (Exception e) {
+            // 如果Reply类没有children字段，忽略
+        }
+    }
+
+    /**
+     * 将Reply对象转换为Map，包含用户信息，使用下划线命名
+     */
+    private java.util.Map<String, Object> convertReplyToMap(Reply reply) {
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("reply_id", reply.getReplyId());
+        map.put("user_id", reply.getUserId());
+        map.put("blog_id", reply.getBlogId());
+        map.put("parentReply", reply.getParentReply());
+        map.put("reply_createdtime", reply.getReplyCreatedtime());
+        map.put("reply_content", reply.getReplyContent());
+        map.put("is_visible", reply.getIsVisible());
+        
+        // 获取用户信息
+        try {
+            java.lang.reflect.Field userNameField = Reply.class.getDeclaredField("userName");
+            userNameField.setAccessible(true);
+            Object userName = userNameField.get(reply);
+            if (userName != null) {
+                map.put("user_name", userName);
+            } else {
+                // 如果Reply对象没有用户信息，从UserService获取
+                com.petblog.Service.UserService userService = new com.petblog.Service.UserService();
+                com.petblog.model.User user = userService.getUserById(reply.getUserId());
+                if (user != null) {
+                    map.put("user_name", user.getUserName());
+                    map.put("user_avatar_path", user.getUserAvatarPath());
+                }
+            }
+        } catch (Exception e) {
+            // 如果获取失败，从UserService获取
+            com.petblog.Service.UserService userService = new com.petblog.Service.UserService();
+            com.petblog.model.User user = userService.getUserById(reply.getUserId());
+            if (user != null) {
+                map.put("user_name", user.getUserName());
+                map.put("user_avatar_path", user.getUserAvatarPath());
+            }
+        }
+        
+        try {
+            java.lang.reflect.Field userAvatarPathField = Reply.class.getDeclaredField("userAvatarPath");
+            userAvatarPathField.setAccessible(true);
+            Object userAvatarPath = userAvatarPathField.get(reply);
+            if (userAvatarPath != null) {
+                map.put("user_avatar_path", userAvatarPath);
+            }
+        } catch (Exception e) {
+            // 忽略
+        }
+        
+        // 获取父评论的用户名（如果有）
+        if (reply.getParentReply() != null) {
+            Reply parentReply = replyService.getReplyById(reply.getParentReply());
+            if (parentReply != null) {
+                com.petblog.Service.UserService userService = new com.petblog.Service.UserService();
+                com.petblog.model.User parentUser = userService.getUserById(parentReply.getUserId());
+                if (parentUser != null) {
+                    map.put("parent_user_name", parentUser.getUserName());
+                }
+            }
+        }
+        
+        // 递归转换子评论
+        try {
+            java.lang.reflect.Field childrenField = Reply.class.getDeclaredField("children");
+            childrenField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.List<Reply> children = (java.util.List<Reply>) childrenField.get(reply);
+            if (children != null && !children.isEmpty()) {
+                java.util.List<java.util.Map<String, Object>> childrenMaps = new java.util.ArrayList<>();
+                for (Reply child : children) {
+                    childrenMaps.add(convertReplyToMap(child));
+                }
+                map.put("children", childrenMaps);
+            }
+        } catch (Exception e) {
+            // 如果Reply类没有children字段，忽略
+        }
+        
+        return map;
     }
 }

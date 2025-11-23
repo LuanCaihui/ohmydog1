@@ -15,7 +15,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public Challenge findById(Integer challengeId) {
-        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description FROM challenges WHERE challenge_id = ?";
+        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description FROM challenges WHERE challenge_id = ?";
         try {
             return queryForObject(sql, this::mapRowToChallenge, challengeId);
         } catch (SQLException e) {
@@ -25,7 +25,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public List<Challenge> findActiveChallenges(int pageNum, int pageSize) {
-        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description FROM challenges WHERE chellenge_status = '进行中' ORDER BY challenge_start_time DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description FROM challenges WHERE chellenge_status = '进行中' ORDER BY challenge_start_time DESC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToChallenge, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -35,7 +35,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public List<Challenge> findCompletedChallenges(int pageNum, int pageSize) {
-        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description FROM challenges WHERE chellenge_status = '已结束' ORDER BY challenge_end_time DESC LIMIT ? OFFSET ?";
+        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description FROM challenges WHERE chellenge_status = '已结束' ORDER BY challenge_end_time DESC LIMIT ? OFFSET ?";
         try {
             return queryForList(sql, this::mapRowToChallenge, pageSize, (pageNum - 1) * pageSize);
         } catch (SQLException e) {
@@ -46,7 +46,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
     @Override
     public List<Challenge> searchByTitle(String keyword, Integer status, int pageNum, int pageSize) {
         StringBuilder sqlBuilder = new StringBuilder();
-        sqlBuilder.append("SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description FROM challenges WHERE challenge_title LIKE ?");
+        sqlBuilder.append("SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description FROM challenges WHERE challenge_title LIKE ?");
 
         if (status != null) {
             sqlBuilder.append(" AND chellenge_status = ?");
@@ -89,7 +89,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public int insert(Challenge challenge) {
-        String sql = "INSERT INTO challenges (challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO challenges (challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
             return insert(sql, challenge.getChallengeTitle(), challenge.getChallengeStartTime(),
                          challenge.getChallengeEndTime(), challenge.getChellengeStatus(),
@@ -102,7 +102,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public int update(Challenge challenge) {
-        String sql = "UPDATE challenges SET challenge_title = ?, challenge_start_time = ?, challenge_end_time = ?, chellenge_status = ?, challenge_is_cancell = ?, user_id = ?, challenge_description = ? WHERE challenge_id = ?";
+        String sql = "UPDATE challenges SET challenge_title = ?, challenge_start_time = ?, challenge_end_time = ?, chellenge_status = ?, challenge_is_cancell = ?, uer_id = ?, challenge_description = ? WHERE challenge_id = ?";
         try {
             return update(sql, challenge.getChallengeTitle(), challenge.getChallengeStartTime(),
                          challenge.getChallengeEndTime(), challenge.getChellengeStatus(),
@@ -135,7 +135,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
 
     @Override
     public List<Challenge> findByTimeRange(Date startTime, Date endTime) {
-        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, user_id, challenge_description FROM challenges WHERE challenge_start_time >= ? AND challenge_end_time <= ?";
+        String sql = "SELECT challenge_id, challenge_title, challenge_start_time, challenge_end_time, chellenge_status, challenge_is_cancell, uer_id, challenge_description FROM challenges WHERE challenge_start_time >= ? AND challenge_end_time <= ?";
         try {
             return queryForList(sql, this::mapRowToChallenge, startTime, endTime);
         } catch (SQLException e) {
@@ -151,7 +151,7 @@ public class ChallengeDAOImpl extends BaseJdbcDAO<Challenge> implements Challeng
         challenge.setChallengeEndTime(rs.getDate("challenge_end_time"));
         challenge.setChellengeStatus(rs.getString("chellenge_status"));
         challenge.setChallengeIsCancell(rs.getInt("challenge_is_cancell"));
-        challenge.setUserId(rs.getInt("user_id"));
+        challenge.setUserId(rs.getInt("uer_id")); // 注意：数据库字段名是 uer_id（拼写错误）
         challenge.setChallengeDescription(rs.getString("challenge_description"));
         return challenge;
     }

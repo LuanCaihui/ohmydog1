@@ -3,6 +3,8 @@ package com.petblog.servlet;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.petblog.Service.VoteService;
 import com.petblog.model.Vote;
+import com.petblog.util.JsonUtil;
+import com.petblog.util.JdbcUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -12,13 +14,18 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @WebServlet("/api/votes/*")
 public class VoteServlet extends HttpServlet {
     private final VoteService voteService = new VoteService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -59,24 +66,48 @@ public class VoteServlet extends HttpServlet {
                 out.print("{\"error\":\"参数格式错误\"}");
             }
         } else {
-            // 检查用户对指定内容的投票状态 /api/votes/status/{userId}/{targetType}/{targetId}
+            // 检查用户对指定博客的投票状态 /api/votes/status/{blogId}
             String[] splits = pathInfo.split("/");
-            if (splits.length >= 4 && "status".equals(splits[1])) {
+            if (splits.length >= 3 && "status".equals(splits[1])) {
                 try {
-                    if (splits.length < 5) {
+                    Integer blogId = Integer.valueOf(splits[2]);
+                    
+                    // 从请求参数或session获取userId
+                    String userIdStr = request.getParameter("userId");
+                    if (userIdStr == null) {
+                        // 尝试从session获取
+                        Object userIdObj = request.getSession().getAttribute("userId");
+                        if (userIdObj != null) {
+                            userIdStr = userIdObj.toString();
+                        }
+                    }
+                    
+                    if (userIdStr == null) {
                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                        out.print("{\"error\":\"路径格式错误，应为 /api/votes/status/{userId}/{targetType}/{targetId}\"}");
+                        Map<String, Object> result = new HashMap<>();
+                        result.put("success", false);
+                        result.put("error", "需要用户ID");
+                        out.print(objectMapper.writeValueAsString(result));
                         return;
                     }
-                    Integer userId = Integer.valueOf(splits[2]);
-                    Integer targetType = Integer.valueOf(splits[3]);
-                    Integer targetId = Integer.valueOf(splits[4]);
-
-                    int voteStatus = voteService.getUserVoteStatus(userId, targetType, targetId);
-                    out.print("{\"voteStatus\":" + voteStatus + "}");
+                    
+                    Integer userId = Integer.valueOf(userIdStr);
+                    
+                    // 检查用户是否已投票（votes表：user_id, blog_id）
+                    boolean userVoted = checkUserVotedForBlog(userId, blogId);
+                    int voteCount = countVotesForBlog(blogId);
+                    
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("userVoted", userVoted);
+                    result.put("voteCount", voteCount);
+                    out.print(objectMapper.writeValueAsString(result));
                 } catch (NumberFormatException e) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    out.print("{\"error\":\"ID格式错误\"}");
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", false);
+                    result.put("error", "ID格式错误");
+                    out.print(objectMapper.writeValueAsString(result));
                 }
                 return;
             }
@@ -118,6 +149,23 @@ public class VoteServlet extends HttpServlet {
             sb.append(line);
         }
 
+        String pathInfo = request.getPathInfo();
+        
+        // 处理切换投票状态 /api/votes/toggle
+        if (pathInfo != null && pathInfo.equals("/toggle")) {
+            try {
+                handleToggleVote(request, response, out, sb.toString());
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", false);
+                result.put("error", "切换投票状态失败: " + e.getMessage());
+                out.print(objectMapper.writeValueAsString(result));
+                e.printStackTrace();
+            }
+            return;
+        }
+        
         try {
             // 将JSON转换为Vote对象
             Vote vote = objectMapper.readValue(sb.toString(), Vote.class);
@@ -273,6 +321,157 @@ public class VoteServlet extends HttpServlet {
 
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             out.print("{\"error\":\"不支持的操作\"}");
+        }
+    }
+    
+    /**
+     * 切换投票状态（投票/取消投票）
+     */
+    private void handleToggleVote(HttpServletRequest request, HttpServletResponse response, PrintWriter out, String requestBody) throws Exception {
+        // 如果请求体为空，尝试从参数获取
+        if (requestBody == null || requestBody.trim().isEmpty()) {
+            String blogIdStr = request.getParameter("blog_id");
+            String userIdStr = request.getParameter("userId");
+            if (blogIdStr != null && userIdStr != null) {
+                Map<String, Object> requestData = new HashMap<>();
+                requestData.put("blog_id", Integer.valueOf(blogIdStr));
+                requestData.put("userId", Integer.valueOf(userIdStr));
+                processToggleVote(requestData, request, response, out);
+                return;
+            }
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("error", "请求体为空");
+            out.print(objectMapper.writeValueAsString(result));
+            return;
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> requestData = objectMapper.readValue(requestBody, 
+            objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+        
+        processToggleVote(requestData, request, response, out);
+    }
+    
+    /**
+     * 处理投票切换逻辑
+     */
+    private void processToggleVote(Map<String, Object> requestData, HttpServletRequest request, HttpServletResponse response, PrintWriter out) throws Exception {
+        
+        Integer blogId = requestData.get("blog_id") != null ? 
+            Integer.valueOf(requestData.get("blog_id").toString()) : null;
+        
+        // 从请求参数或session获取userId
+        String userIdStr = request.getParameter("userId");
+        if (userIdStr == null && requestData.containsKey("userId")) {
+            userIdStr = requestData.get("userId").toString();
+        }
+        if (userIdStr == null) {
+            Object userIdObj = request.getSession().getAttribute("userId");
+            if (userIdObj != null) {
+                userIdStr = userIdObj.toString();
+            }
+        }
+        
+        if (blogId == null || userIdStr == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("error", "参数错误: blogId=" + blogId + ", userId=" + userIdStr);
+            out.print(objectMapper.writeValueAsString(result));
+            return;
+        }
+        
+        Integer userId = Integer.valueOf(userIdStr);
+        
+        // 检查是否已投票
+        boolean userVoted = checkUserVotedForBlog(userId, blogId);
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        if (userVoted) {
+            // 取消投票
+            deleteVote(userId, blogId);
+            result.put("success", true);
+            result.put("voted", false);
+        } else {
+            // 添加投票
+            Vote vote = new Vote();
+            vote.setUserId(userId);
+            vote.setBlogId(blogId);
+            vote.setVoteCreateTime(LocalDateTime.now());
+            voteService.createVote(vote);
+            result.put("success", true);
+            result.put("voted", true);
+        }
+        
+        // 获取更新后的投票数
+        int voteCount = countVotesForBlog(blogId);
+        result.put("voteCount", voteCount);
+        
+        out.print(objectMapper.writeValueAsString(result));
+    }
+    
+    /**
+     * 检查用户是否已投票
+     */
+    private boolean checkUserVotedForBlog(Integer userId, Integer blogId) {
+        try {
+            String sql = "SELECT COUNT(*) FROM votes WHERE user_id = ? AND blog_id = ?";
+            Connection conn = JdbcUtil.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, userId);
+            pstmt.setInt(2, blogId);
+            ResultSet rs = pstmt.executeQuery();
+            boolean voted = false;
+            if (rs.next()) {
+                voted = rs.getInt(1) > 0;
+            }
+            JdbcUtil.close(conn, pstmt, rs);
+            return voted;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * 删除投票
+     */
+    private void deleteVote(Integer userId, Integer blogId) {
+        try {
+            String sql = "DELETE FROM votes WHERE user_id = ? AND blog_id = ?";
+            Connection conn = JdbcUtil.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, userId);
+            pstmt.setInt(2, blogId);
+            pstmt.executeUpdate();
+            JdbcUtil.close(conn, pstmt, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 统计博客的投票数
+     */
+    private int countVotesForBlog(Integer blogId) {
+        try {
+            String sql = "SELECT COUNT(*) FROM votes WHERE blog_id = ?";
+            Connection conn = JdbcUtil.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, blogId);
+            ResultSet rs = pstmt.executeQuery();
+            int count = 0;
+            if (rs.next()) {
+                count = rs.getInt(1);
+            }
+            JdbcUtil.close(conn, pstmt, rs);
+            return count;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
     }
 }
