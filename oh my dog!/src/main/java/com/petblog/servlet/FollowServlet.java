@@ -108,6 +108,67 @@ public class FollowServlet extends HttpServlet {
             out.print("{\"message\":\"Follows表初始化完成\",\"success\":true}");
             return;
         }
+        
+        // 处理 /api/follows/recommendations 请求 - 获取推荐关注列表
+        if (pathInfo != null && pathInfo.equals("/recommendations")) {
+            try {
+                // 从session获取当前用户ID
+                Object userIdObj = request.getSession().getAttribute("userId");
+                String userIdParam = request.getParameter("userId");
+                
+                Integer currentUserId = null;
+                if (userIdParam != null) {
+                    currentUserId = Integer.valueOf(userIdParam);
+                } else if (userIdObj != null) {
+                    currentUserId = userIdObj instanceof Integer ? (Integer) userIdObj : Integer.valueOf(userIdObj.toString());
+                }
+                
+                // 获取推荐用户列表（简单实现：返回所有用户，排除已关注的和自己）
+                com.petblog.Service.UserService userService = new com.petblog.Service.UserService();
+                java.util.List<com.petblog.model.User> allUsers = userService.getAllUsers(1, 50);
+                java.util.List<java.util.Map<String, Object>> recommendations = new java.util.ArrayList<>();
+                
+                if (allUsers != null) {
+                    // 获取当前用户已关注的用户ID列表
+                    java.util.Set<Integer> followingIds = new java.util.HashSet<>();
+                    if (currentUserId != null) {
+                        java.util.List<Integer> following = followService.getFollowingIds(currentUserId, 1, 1000);
+                        if (following != null) {
+                            followingIds.addAll(following);
+                        }
+                    }
+                    
+                    for (com.petblog.model.User user : allUsers) {
+                        // 排除自己和已关注的用户
+                        if (currentUserId != null && user.getUserId().equals(currentUserId)) {
+                            continue;
+                        }
+                        if (followingIds.contains(user.getUserId())) {
+                            continue;
+                        }
+                        
+                        java.util.Map<String, Object> userMap = new java.util.HashMap<>();
+                        userMap.put("user_id", user.getUserId());
+                        userMap.put("user_name", user.getUserName());
+                        userMap.put("user_avatar_path", user.getUserAvatarPath());
+                        userMap.put("email", user.getEmail());
+                        recommendations.add(userMap);
+                        
+                        // 限制返回数量
+                        if (recommendations.size() >= 10) {
+                            break;
+                        }
+                    }
+                }
+                
+                out.print(objectMapper.writeValueAsString(recommendations));
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"error\":\"获取推荐关注列表失败: " + e.getMessage() + "\"}");
+                e.printStackTrace();
+            }
+            return;
+        }
 
         // 获取查询参数
         String userIdParam = request.getParameter("userId");

@@ -1439,8 +1439,8 @@
                         结束：${formatDateTime(challenge.challenge_end_time)}
                     </div>
                     <div class="challenge-author">
-                        <img src="${challenge.user_avatar_path || '/petblog/images/Default avatar.png'}" alt="头像" class="author-avatar">
-                        <span>发起者：${challenge.user_name}</span>
+                        <img src="${formatAvatarPath(challenge.user_avatar_path)}" alt="头像" class="author-avatar" onerror="this.src='/petblog/images/Default avatar.png'">
+                        <span>发起者：${challenge.user_name || '未知用户'}</span>
                     </div>
                     <div id="winner_${challenge.challenge_id}" class="challenge-winner" style="display: none;">
                         <!-- 获胜者信息将在这里显示 -->
@@ -1511,6 +1511,24 @@
             }
         }
 
+        // 格式化头像路径
+        function formatAvatarPath(avatarPath) {
+            if (!avatarPath) {
+                return '/petblog/images/Default avatar.png';
+            }
+            // 如果已经是完整路径（以/开头），检查是否需要添加/petblog前缀
+            if (avatarPath.startsWith('/')) {
+                // 如果路径以/petblog开头，直接返回
+                if (avatarPath.startsWith('/petblog/')) {
+                    return avatarPath;
+                }
+                // 如果路径以/开头但不是/petblog，添加/petblog前缀
+                return '/petblog' + avatarPath;
+            }
+            // 如果是相对路径，添加/petblog/前缀
+            return '/petblog/' + avatarPath;
+        }
+
         // 打开创建挑战模态框
         function openCreateModal() {
             document.getElementById('createChallengeModal').style.display = 'block';
@@ -1569,7 +1587,15 @@
             }
             
             try {
-                const response = await fetch('/api/challenges', {
+                if (!currentUserId) {
+                    alert('请先登录');
+                    return;
+                }
+                
+                // 添加userId到请求数据
+                challengeData.userId = currentUserId;
+                
+                const response = await fetch('/petblog/api/challenges', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1627,7 +1653,15 @@
         // 加载宠物列表用于参与挑战
         async function loadPetsForParticipate() {
             try {
-                const response = await fetch('/petblog/api/pets/my');
+                if (!currentUserId) {
+                    document.getElementById('participatePetSelection').innerHTML =
+                        '<div style="color: #e74c3c; text-align: center; padding: 10px;">请先登录</div>';
+                    return;
+                }
+                const response = await fetch(`/petblog/api/pets/my?userId=${currentUserId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 const pets = await response.json();
 
                 const container = document.getElementById('participatePetSelection');
@@ -1637,12 +1671,25 @@
                     return;
                 }
 
-                container.innerHTML = pets.map(pet => `
-                    <div class="pet-tag" data-pet-id="${pet.pet_id}" onclick="togglePetSelection(this)">
-                        <img src="${pet.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${pet.pet_name}">
-                        ${pet.pet_name}
-                    </div>
-                `).join('');
+                container.innerHTML = pets.map(pet => {
+                    // 处理字段名：后端可能返回驼峰命名(petId, petName)或下划线命名(pet_id, pet_name)
+                    const petId = pet.pet_id || pet.petId;
+                    const petName = pet.pet_name || pet.petName || '未知宠物';
+                    const petAvatarPath = pet.pet_avatar_path || pet.petAvatarPath;
+                    const avatarUrl = formatAvatarPath(petAvatarPath || 'images/default-pet.png');
+                    
+                    if (!petId) {
+                        console.error('宠物数据缺少ID:', pet);
+                        return '';
+                    }
+                    
+                    return `
+                        <div class="pet-tag" data-pet-id="${petId}" onclick="togglePetSelection(this)">
+                            <img src="${avatarUrl}" alt="${petName}" onerror="this.src='/petblog/images/default-pet.png'">
+                            ${petName}
+                        </div>
+                    `;
+                }).filter(html => html).join('');
             } catch (error) {
                 console.error('加载宠物列表失败:', error);
                 document.getElementById('participatePetSelection').innerHTML =
@@ -1711,6 +1758,11 @@
             try {
                 console.log('开始加载挑战作品，挑战ID:', challengeId);
                 
+                // 确保获取当前用户ID
+                if (!currentUserId) {
+                    await getCurrentUser();
+                }
+                
                 // 设置当前挑战ID到全局变量
                 window.currentChallengeId = challengeId;
                 
@@ -1774,9 +1826,9 @@
             return `
                 <div class="blog-card">
                     <div class="blog-header">
-                        <img src="${blog.user_avatar_path || '/petblog/images/Default avatar.png'}" alt="头像" class="blog-author-avatar">
+                        <img src="${formatAvatarPath(blog.user_avatar_path)}" alt="头像" class="blog-author-avatar" onerror="this.src='/petblog/images/Default avatar.png'">
                         <div class="blog-author-info">
-                            <div class="blog-author-name">${blog.user_name}</div>
+                            <div class="blog-author-name">${blog.user_name || '未知用户'}</div>
                             <div class="blog-time">${formatDateTime(blog.blog_create_time)}</div>
                         </div>
                         ${isCurrentUserBlog ? `
@@ -1849,9 +1901,16 @@
 
         // 获取当前挑战ID
         function getCurrentChallengeId() {
-            // 从全局变量或URL参数获取当前挑战ID
-            // 这里需要根据实际情况调整
-            return window.currentChallengeId;
+            // 从全局变量获取当前挑战ID
+            if (window.currentChallengeId) {
+                return window.currentChallengeId;
+            }
+            // 如果全局变量不存在，尝试从模态框的隐藏字段获取
+            const participateChallengeId = document.getElementById('participateChallengeId');
+            if (participateChallengeId && participateChallengeId.value) {
+                return parseInt(participateChallengeId.value);
+            }
+            return null;
         }
 
         // 查看狗狗排名
@@ -1877,25 +1936,26 @@
                     const rankingsResult = await rankingsResponse.json();
 
                     if (rankingsResult.success) {
-                        const rankings = rankingsResult.rankings;
+                        const rankings = rankingsResult.rankings || [];
 
-                        // 如果挑战已结束，显示获胜者
+                        // 如果挑战已结束，显示获胜者（前3名）
                         if (status.type === 'ended') {
-                            const winnersResponse = await fetch(`/petblog/api/challenges/${challengeId}/winners`);
-                            const winnersResult = await winnersResponse.json();
-
-                            if (winnersResult.success && winnersResult.winners.length > 0) {
+                            const top3 = rankings.slice(0, 3);
+                            if (top3.length > 0) {
                                 document.getElementById('winnersSection').style.display = 'block';
-                                document.getElementById('winnersList').innerHTML = winnersResult.winners.map(winner => `
-                                    <div class="winner-card">
-                                        <img src="${winner.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${winner.pet_name}" class="winner-avatar">
-                                        <div class="winner-info">
-                                            <div class="winner-name">${winner.pet_name}</div>
-                                            <div class="winner-votes">${winner.vote_count} 票 | 主人：${winner.owner_name}</div>
+                                document.getElementById('winnersList').innerHTML = top3.map(winner => {
+                                    const winnerAvatarUrl = formatAvatarPath(winner.pet_avatar_path || 'images/default-pet.png');
+                                    return `
+                                        <div class="winner-card">
+                                            <img src="${winnerAvatarUrl}" alt="${winner.pet_name || '未知宠物'}" class="winner-avatar" onerror="this.src='/petblog/images/default-pet.png'">
+                                            <div class="winner-info">
+                                                <div class="winner-name">${winner.pet_name || '未知宠物'}</div>
+                                                <div class="winner-votes">${winner.vote_count || 0} 票 | 主人：${winner.owner_name || '未知用户'}</div>
+                                            </div>
+                                            <div style="font-size: 2rem;">🏆</div>
                                         </div>
-                                        <div style="font-size: 2rem;">🏆</div>
-                                    </div>
-                                `).join('');
+                                    `;
+                                }).join('');
                             } else {
                                 document.getElementById('winnersSection').style.display = 'none';
                             }
@@ -1949,17 +2009,20 @@
                 badgeClass += ' other';
             }
 
+            const petAvatarUrl = formatAvatarPath(pet.pet_avatar_path || 'images/default-pet.png');
+            const ownerAvatarUrl = formatAvatarPath(pet.owner_avatar || 'images/Default avatar.png');
+            
             return `
                 <div class="${cardClass}">
                     <div class="${badgeClass}">${rankIcon}</div>
                     <div class="pet-ranking-header">
-                        <img src="${pet.pet_avatar_path || '/petblog/images/default-pet.png'}" alt="${pet.pet_name}" class="pet-ranking-avatar">
+                        <img src="${petAvatarUrl}" alt="${pet.pet_name || '未知宠物'}" class="pet-ranking-avatar" onerror="this.src='/petblog/images/default-pet.png'">
                         <div class="pet-ranking-info">
-                            <div class="pet-ranking-name">${pet.pet_name}</div>
-                            <div class="pet-ranking-breed">${pet.pet_breed}</div>
+                            <div class="pet-ranking-name">${pet.pet_name || '未知宠物'}</div>
+                            <div class="pet-ranking-breed">${pet.pet_breed || '未知品种'}</div>
                             <div class="pet-ranking-owner">
-                                <img src="${pet.owner_avatar || '/images/Default avatar.png'}" alt="${pet.owner_name}" class="owner-avatar">
-                                <span>主人：${pet.owner_name}</span>
+                                <img src="${ownerAvatarUrl}" alt="${pet.owner_name || '未知用户'}" class="owner-avatar" onerror="this.src='/petblog/images/Default avatar.png'">
+                                <span>主人：${pet.owner_name || '未知用户'}</span>
                             </div>
                         </div>
                     </div>
@@ -2005,7 +2068,24 @@
         document.getElementById('participateBlogForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            // 确保获取当前用户ID
+            if (!currentUserId) {
+                await getCurrentUser();
+            }
+            
+            if (!currentUserId) {
+                alert('请先登录');
+                return;
+            }
+
             const formData = new FormData(this);
+            
+            // 添加用户ID和挑战ID
+            formData.append('user_id', currentUserId);
+            const challengeId = document.getElementById('participateChallengeId').value;
+            if (challengeId) {
+                formData.append('challenge_id', challengeId);
+            }
 
             // 获取选中的宠物ID列表
             const selectedPetTags = document.querySelectorAll('#participatePetSelection .pet-tag.selected');
@@ -2021,38 +2101,79 @@
             formData.append('pet_ids', JSON.stringify(petIds));
 
             try {
+                console.log('提交参与挑战表单，挑战ID:', challengeId, '宠物IDs:', petIds);
+                
                 const response = await fetch('/petblog/api/blogs/add', {
                     method: 'POST',
                     body: formData
                 });
+                
+                const responseText = await response.text();
+                console.log('参与挑战响应状态:', response.status);
+                console.log('参与挑战响应内容:', responseText);
+                
+                if (!response.ok) {
+                    try {
+                        const errorResult = JSON.parse(responseText);
+                        throw new Error(errorResult.error || errorResult.message || `HTTP ${response.status}: ${response.statusText}`);
+                    } catch (e) {
+                        if (e instanceof Error && e.message.includes('HTTP')) {
+                            throw e;
+                        }
+                        throw new Error(`HTTP ${response.status}: ${responseText}`);
+                    }
+                }
 
-                const result = await response.json();
+                const result = JSON.parse(responseText);
+                console.log('参与挑战响应结果:', result);
 
                 if (result.success) {
                     alert('成功参与挑战！博客已发布！');
                     closeParticipateModal();
                     loadChallenges(); // 重新加载挑战列表
                 } else {
-                    alert(result.message || '参与挑战失败');
+                    alert(result.error || result.message || '参与挑战失败');
                 }
             } catch (error) {
                 console.error('参与挑战失败:', error);
-                alert('参与挑战失败，请稍后重试');
+                alert('参与挑战失败: ' + (error.message || error.toString()));
             }
         });
 
         // 切换投票状态
         async function toggleVote(blogId, buttonElement) {
             try {
+                // 确保获取当前用户ID
+                if (!currentUserId) {
+                    await getCurrentUser();
+                }
+                
+                if (!currentUserId) {
+                    alert('请先登录');
+                    return;
+                }
+                
+                console.log('投票请求:', { blogId, userId: currentUserId });
+                
                 const response = await fetch('/petblog/api/votes/toggle', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ blog_id: blogId })
+                    body: JSON.stringify({ 
+                        blog_id: blogId,
+                        userId: currentUserId
+                    })
                 });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('投票请求失败:', response.status, errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
                 const result = await response.json();
+                console.log('投票响应:', result);
 
                 if (result.success) {
                     // 更新按钮状态
@@ -2076,18 +2197,19 @@
                         updateChallengeHeat(currentChallengeId);
                     }
                 } else {
-                    alert(result.message || '投票失败');
+                    console.error('投票失败:', result);
+                    alert(result.error || result.message || '投票失败');
                 }
             } catch (error) {
                 console.error('投票失败:', error);
-                alert('投票失败，请稍后重试');
+                alert('投票失败: ' + error.message);
             }
         }
 
         // 更新博客热度显示
         async function updateBlogHeat(blogId) {
             try {
-                const response = await fetch(`/api/blogs/${blogId}/heat-details`);
+                const response = await fetch(`/petblog/api/blogs/${blogId}/heat-details`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -2121,7 +2243,7 @@
         // 加载博客的投票状态
         async function loadVoteStatus(blogId) {
             try {
-                const response = await fetch(`/api/votes/status/${blogId}`);
+                const response = await fetch(`/petblog/api/votes/status/${blogId}?userId=${currentUserId}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -2175,7 +2297,7 @@
         // 显示热度详情
         async function showHeatDetails(blogId) {
             try {
-                const response = await fetch(`/api/blogs/${blogId}/heat-details`);
+                const response = await fetch(`/petblog/api/blogs/${blogId}/heat-details`);
                 const result = await response.json();
 
                 if (result.success) {

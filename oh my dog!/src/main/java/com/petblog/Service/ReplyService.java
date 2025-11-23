@@ -52,6 +52,18 @@ public class ReplyService extends BaseService {
     }
 
     /**
+     * 根据博客ID查询所有一级评论
+     */
+    public List<Reply> getRepliesByBlogId(Integer blogId) {
+        try {
+            return replyDAO.findByBlogId(blogId);
+        } catch (SQLException e) {
+            SQLExceptionHandler.handleSQLException(e, "根据博客ID查询评论列表");
+            return null;
+        }
+    }
+
+    /**
      * 统计某评论的回复总数
      */
     public int countRepliesByCommentId(Integer commentId) {

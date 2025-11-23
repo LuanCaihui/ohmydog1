@@ -39,6 +39,13 @@ public interface ReplyDAO {
     List<Reply> findByUserId(Integer userId, int pageNum, int pageSize) throws SQLException;
 
     /**
+     * 根据博客ID查询所有一级评论（parentReply为null的回复）
+     * @param blogId 博客ID
+     * @return 评论列表（按发布时间正序）
+     */
+    List<Reply> findByBlogId(Integer blogId) throws SQLException;
+
+    /**
      * 统计某评论的回复总数
      * @param commentId 评论ID
      * @return 回复数量

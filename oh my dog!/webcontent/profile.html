@@ -1050,21 +1050,27 @@
         // 获取用户信息
         async function fetchUserInfo() {
             try {
-                // 从 sessionStorage 获取当前用户ID
-                const currentUserStr = sessionStorage.getItem('currentUser');
-                let userId = null;
+                // 优先从URL参数获取userId，如果没有则从sessionStorage获取
+                const urlParams = new URLSearchParams(window.location.search);
+                let userId = urlParams.get('userId');
                 
-                if (currentUserStr) {
-                    try {
-                        const currentUser = JSON.parse(currentUserStr);
-                        userId = currentUser.userId;
-                    } catch (e) {
-                        console.error('解析用户信息失败:', e);
+                if (!userId) {
+                    // 从 sessionStorage 获取当前用户ID
+                    const currentUserStr = sessionStorage.getItem('currentUser');
+                    if (currentUserStr) {
+                        try {
+                            const currentUser = JSON.parse(currentUserStr);
+                            userId = currentUser.userId;
+                        } catch (e) {
+                            console.error('解析用户信息失败:', e);
+                        }
                     }
                 }
                 
                 if (!userId) {
-                    console.error('无法获取当前用户ID');
+                    console.error('无法获取当前用户ID，请先登录');
+                    // 跳转到登录页面
+                    window.location.href = '/petblog/login.html';
                     return;
                 }
                 
@@ -1082,9 +1088,14 @@
                 const userAvatar = document.getElementById('user-avatar');
                 if (userData.userAvatarPath) {
                     // 移除 'public/' 前缀并将反斜杠转换为正斜杠
-                    const avatarUrl = userData.userAvatarPath.replace(/\\/g, '/').replace('public/', '/');
-                    // 确保路径以 /petblog 开头
-                    userAvatar.src = avatarUrl.startsWith('/petblog') ? avatarUrl : `/petblog${avatarUrl}`;
+                    let avatarUrl = userData.userAvatarPath.replace(/\\/g, '/').replace('public/', '/');
+                    // 如果路径以 /images/ 开头，添加 /petblog 前缀
+                    if (avatarUrl.startsWith('/images/')) {
+                        avatarUrl = '/petblog' + avatarUrl;
+                    } else if (!avatarUrl.startsWith('/petblog') && !avatarUrl.startsWith('http')) {
+                        avatarUrl = '/petblog' + avatarUrl;
+                    }
+                    userAvatar.src = avatarUrl;
                 } else {
                     userAvatar.src = '/petblog/images/Default avatar.png'; // 默认头像
                 }
@@ -1095,9 +1106,34 @@
 
         // 获取宠物列表
         function fetchPets() {
-            fetch('/petblog/api/pets/my')
-                .then(response => response.json())
+            // 从URL参数或sessionStorage获取userId
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get('userId');
+            if (!userId) {
+                const currentUserStr = sessionStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    try {
+                        const currentUser = JSON.parse(currentUserStr);
+                        userId = currentUser.userId;
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                    }
+                }
+            }
+            
+            const url = userId ? `/petblog/api/pets?userId=${userId}` : '/petblog/api/pets/my';
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        return [];
+                    }
+                    return response.json();
+                })
                 .then(pets => {
+                    // 确保pets是数组
+                    if (!Array.isArray(pets)) {
+                        pets = [];
+                    }
                     window.currentPets = pets; // 关键：全局保存
                     const petsList = document.getElementById('petsList');
                     petsList.innerHTML = '';
@@ -1110,18 +1146,34 @@
                     pets.forEach(pet => {
                         const petCard = document.createElement('div');
                         petCard.className = 'pet-card';
-                        const petId = pet.pet_id;
+                        const petId = pet.pet_id || pet.petId || 0;
+                        const petName = pet.pet_name || pet.petName || '未命名';
+                        const petBreed = pet.pet_breed || pet.petBreed || '未知';
+                        const petGender = pet.pet_gender || pet.petGender || '未知';
+                        const petBirthdate = pet.pet_birthdate || pet.petBirthdate;
+                        
                         // 使用 pet_avatar_path 属性显示宠物头像
-                        const imageUrl = pet.pet_avatar_path ? pet.pet_avatar_path.replace(/\\/g, '/').replace('public/', '/') : '/images/pet-avatar.png';
+                        let imageUrl = pet.pet_avatar_path || pet.petAvatarPath;
+                        if (imageUrl) {
+                            imageUrl = imageUrl.replace(/\\/g, '/').replace('public/', '/');
+                            if (imageUrl.startsWith('/images/')) {
+                                imageUrl = '/petblog' + imageUrl;
+                            } else if (!imageUrl.startsWith('/petblog') && !imageUrl.startsWith('http')) {
+                                imageUrl = '/petblog' + imageUrl;
+                            }
+                        } else {
+                            imageUrl = '/petblog/images/default-pet.png';
+                        }
+                        
                         petCard.innerHTML = `
                             <div class="pet-avatar">
-                                <img src="${imageUrl}" alt="${pet.pet_name}的头像">
+                                <img src="${imageUrl}" alt="${petName}的头像">
                             </div>
                             <div class="pet-info">
-                                <h3>${pet.pet_name}</h3>
-                                <p>品种：${pet.pet_breed}</p>
-                                <p>性别：${pet.pet_gender}</p>
-                                <p>出生日期：${new Date(pet.pet_birthdate).toLocaleDateString()}</p>
+                                <h3>${petName}</h3>
+                                <p>品种：${petBreed}</p>
+                                <p>性别：${petGender}</p>
+                                <p>出生日期：${petBirthdate ? new Date(petBirthdate).toLocaleDateString() : '未知'}</p>
                                 <div style="margin-top:10px;">
                                     <button class="btn" onclick="window.editPet(${petId})" style="margin-right:8px;">编辑</button>
                                     <button class="btn" style="background:#e74c3c;" onclick="window.deletePet(${petId})">删除</button>
@@ -1156,7 +1208,25 @@
                 return;
             }
 
+            // 从sessionStorage获取userId
+            const currentUserStr = sessionStorage.getItem('currentUser');
+            let userId = null;
+            if (currentUserStr) {
+                try {
+                    const currentUser = JSON.parse(currentUserStr);
+                    userId = currentUser.userId;
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            }
+            
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
             const formData = {
+                userId: userId, // 添加userId到请求体
                 user_name: user_name,
                 email: email,
                 newPassword: newPassword
@@ -1164,24 +1234,31 @@
 
             try {
                 const response = await fetch('/petblog/api/user/update', {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(formData)
                 });
 
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({error: '更新失败'}));
+                    throw new Error(errorData.error || errorData.message || `HTTP错误: ${response.status}`);
+                }
+
                 const result = await response.json();
                 if (result.success) {
                     alert('个人信息更新成功！');
                     document.getElementById('new-password').value = '';
                     document.getElementById('confirm-password').value = '';
+                    // 刷新用户信息
+                    fetchUserInfo();
                 } else {
-                    alert(result.message || '更新失败，请重试');
+                    alert(result.message || result.error || '更新失败，请重试');
                 }
             } catch (error) {
                 console.error('更新个人信息失败:', error);
-                alert('更新失败，请重试');
+                alert(error.message || '更新失败，请重试');
             }
         });
 
@@ -1267,81 +1344,186 @@
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
-            try {
-                const res = await fetch('/petblog/api/user/pets/add', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await res.json();
-                if (result.success) {
-                    alert('添加成功！');
-                    closeAddPetModal();
-                    fetchPets();
-                } else {
-                    alert(result.message || '添加失败');
+            
+            // 从sessionStorage获取userId
+            const currentUserStr = sessionStorage.getItem('currentUser');
+            let userId = null;
+            if (currentUserStr) {
+                try {
+                    const currentUser = JSON.parse(currentUserStr);
+                    userId = currentUser.userId;
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
                 }
+            }
+            
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
+            // 构建JSON数据（不包括文件）
+            const petData = {
+                petName: formData.get('pet_name'),
+                petGender: formData.get('pet_gender'),
+                petBreed: formData.get('pet_breed'),
+                petBirthdate: formData.get('pet_birthdate'),
+                userId: userId,
+                petAvatarPath: '/petblog/images/default-pet.png' // 默认头像路径
+            };
+            
+            try {
+                // 先创建宠物
+                const res = await fetch('/petblog/api/pets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(petData)
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({error: '创建宠物失败'}));
+                    throw new Error(errorData.error || '创建宠物失败');
+                }
+                
+                const result = await res.json();
+                // 检查是否成功创建（返回的pet对象包含petId）
+                if (!result.petId && !result.pet_id) {
+                    throw new Error('创建宠物失败：未返回宠物ID');
+                }
+                
+                // 头像上传功能暂时不实现，可以后续添加
+                // 如果需要上传头像，可以在创建宠物后通过PUT方法更新petAvatarPath字段
+                
+                alert('添加成功！');
+                closeAddPetModal();
+                form.reset();
+                fetchPets();
             } catch (err) {
-                alert('添加失败');
+                console.error('添加失败:', err);
+                alert(err.message || '添加失败');
             }
         };
 
         // 编辑宠物弹窗
         let editingPetId = null;
         window.editPet = function(petId) {
-            const pet = window.currentPets.find(p => String(p.pet_id) === String(petId));
-            if (!pet) return;
+            const pet = window.currentPets.find(p => String(p.pet_id || p.petId) === String(petId));
+            if (!pet) {
+                alert('未找到该宠物信息');
+                return;
+            }
             editingPetId = petId;
             const form = document.getElementById('editPetForm');
-            form.pet_id.value = pet.pet_id;
-            form.pet_name.value = pet.pet_name;
-            form.pet_gender.value = pet.pet_gender;
-            form.pet_breed.value = pet.pet_breed;
-            form.pet_birthdate.value = pet.pet_birthdate ? pet.pet_birthdate.substr(0,10) : '';
+            form.pet_id.value = pet.pet_id || pet.petId;
+            form.pet_name.value = pet.pet_name || pet.petName || '';
+            form.pet_gender.value = pet.pet_gender || pet.petGender || '';
+            form.pet_breed.value = pet.pet_breed || pet.petBreed || '';
+            const birthdate = pet.pet_birthdate || pet.petBirthdate;
+            form.pet_birthdate.value = birthdate ? (typeof birthdate === 'string' ? birthdate.substr(0,10) : new Date(birthdate).toISOString().substr(0,10)) : '';
             showEditPetModal();
         };
         document.getElementById('editPetForm').onsubmit = async function(e) {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
-            // 确保pet_id字段正确
-            if (!formData.get('pet_id')) {
-                formData.set('pet_id', editingPetId);
-            }
-            try {
-                const res = await fetch('/petblog/api/user/pets/update', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await res.json();
-                if (result.success) {
-                    alert('修改成功！');
-                    closeEditPetModal();
-                    fetchPets();
-                } else {
-                    alert(result.message || '修改失败');
+            
+            // 从sessionStorage获取userId
+            const currentUserStr = sessionStorage.getItem('currentUser');
+            let userId = null;
+            if (currentUserStr) {
+                try {
+                    const currentUser = JSON.parse(currentUserStr);
+                    userId = currentUser.userId;
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
                 }
+            }
+            
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
+            const petId = editingPetId || formData.get('pet_id');
+            if (!petId) {
+                alert('宠物ID不能为空');
+                return;
+            }
+            
+            // 获取原有宠物信息以保留头像
+            const existingPet = window.currentPets.find(p => String(p.pet_id || p.petId) === String(petId));
+            
+            // 构建JSON数据（不包括文件）
+            const petData = {
+                petId: petId,
+                petName: formData.get('pet_name'),
+                petGender: formData.get('pet_gender'),
+                petBreed: formData.get('pet_breed'),
+                petBirthdate: formData.get('pet_birthdate'),
+                userId: userId,
+                petAvatarPath: (existingPet && (existingPet.pet_avatar_path || existingPet.petAvatarPath)) || '/petblog/images/default-pet.png' // 保留原有头像或使用默认头像
+            };
+            
+            try {
+                // 先更新宠物信息
+                const res = await fetch(`/petblog/api/pets/${petId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(petData)
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({error: '更新宠物失败'}));
+                    throw new Error(errorData.error || '更新宠物失败');
+                }
+                
+                // 验证更新是否成功
+                const result = await res.json();
+                if (!result.petId && !result.pet_id) {
+                    throw new Error('更新宠物失败：未返回宠物信息');
+                }
+                
+                // 头像上传功能暂时不实现，可以后续添加
+                // 如果需要上传头像，可以通过PUT方法更新petAvatarPath字段
+                
+                alert('修改成功！');
+                closeEditPetModal();
+                form.reset();
+                fetchPets();
             } catch (err) {
-                alert('修改失败');
+                console.error('修改失败:', err);
+                alert(err.message || '修改失败');
             }
         };
         // 删除宠物
         window.deletePet = function(petId) {
             if (!confirm('确定要删除该宠物吗？删除后与该宠物关联的所有博客及相关数据也会被一并删除，且无法恢复！')) return;
-            fetch('/petblog/api/user/pets/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pet_id: petId })
+            fetch(`/petblog/api/pets/${petId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
             })
-            .then(res => res.json())
-            .then(result => {
-                if (result.success) {
-                    alert('删除成功！');
-                    fetchPets();
-                } else {
-                    alert(result.message || '删除失败');
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(err => { throw new Error(err.error || '删除失败'); });
                 }
+                return res.json();
             })
-            .catch(() => alert('删除失败'));
+            .then(result => {
+                // 检查删除是否成功
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                alert('删除成功！');
+                fetchPets();
+            })
+            .catch(err => {
+                console.error('删除失败:', err);
+                alert(err.message || '删除失败');
+            });
         };
 
         // 专栏tab切换
@@ -1367,25 +1549,48 @@
 
         // 加载专栏列表
         async function loadMyColumns() {
-            const res = await fetch('/petblog/api/my-columns');
+            // 从URL参数或sessionStorage获取userId
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get('userId');
+            if (!userId) {
+                const currentUserStr = sessionStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    try {
+                        const currentUser = JSON.parse(currentUserStr);
+                        userId = currentUser.userId;
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                    }
+                }
+            }
+            
+            const url = userId ? `/petblog/api/columns/my?userId=${userId}` : '/petblog/api/columns/my';
+            const res = await fetch(url);
             const columns = await res.json();
             const list = document.getElementById('columnsList');
             if (!columns.length) {
                 list.innerHTML = '<p>暂无专栏</p>';
                 return;
             }
-            list.innerHTML = columns.map(col => `
+            list.innerHTML = columns.map(col => {
+                const columnName = col.Column_name || col.column_name || col.columnName || '未命名专栏';
+                const columnDescription = col.Column_description || col.column_description || col.columnDescription || '';
+                const columnId = col.Column_id || col.column_id || col.columnId || 0;
+                const createdTime = col.Column_createdtime || col.column_createdtime || col.columnCreatedTime;
+                
+                return `
                 <div class="column-card" style="background:#fff;padding:18px 20px;margin-bottom:12px;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,0.06);">
-                    <div style="font-size:18px;font-weight:bold;">${col.Column_name}</div>
-                    <div style="color:#888;margin:6px 0 8px 0;">${col.Column_description||''}</div>
-                    <div style="font-size:13px;color:#aaa;">创建时间：${new Date(col.Column_createdtime).toLocaleString()}</div>
+                    <div style="font-size:18px;font-weight:bold;">${columnName}</div>
+                    <div style="color:#888;margin:6px 0 8px 0;">${columnDescription}</div>
+                    <div style="font-size:13px;color:#aaa;">创建时间：${createdTime ? new Date(createdTime).toLocaleString() : '未知'}</div>
                     <div style="margin-top:10px;">
-                        <button class="btn" onclick="showColumnBlogs(${col.Column_id}, '${col.Column_name.replace(/'/g,"\\'")}')">管理博客</button>
-                        <button class="btn" onclick="editColumn(${col.Column_id},'${col.Column_name.replace(/'/g,"\\'")}', '${(col.Column_description||'').replace(/'/g,"\\'")}')">编辑</button>
-                        <button class="btn" style="background:#e74c3c;" onclick="deleteColumn(${col.Column_id})">删除</button>
+                        <button class="btn" onclick="showColumnBlogs(${columnId}, '${columnName.replace(/'/g,"\\'")}')">管理博客</button>
+                        <button class="btn" onclick="editColumn(${columnId},'${columnName.replace(/'/g,"\\'")}', '${columnDescription.replace(/'/g,"\\'")}')">编辑</button>
+                        <button class="btn" style="background:#e74c3c;" onclick="deleteColumn(${columnId})">删除</button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         // 打开添加专栏弹窗
@@ -1408,18 +1613,28 @@
 
         // 删除专栏
         window.deleteColumn = async function(id) {
-            if (!confirm('确定要删除该专栏吗？')) return;
-            const res = await fetch('/petblog/api/column/delete', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ column_id: id })
-            });
-            const result = await res.json();
-            if (result.success) {
+            if (!confirm('确定要删除该专栏吗？删除后该专栏下的所有博客将不再属于任何专栏！')) return;
+            try {
+                const res = await fetch(`/petblog/api/columns/${id}`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type':'application/json'}
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({error: '删除失败'}));
+                    throw new Error(errorData.error || '删除失败');
+                }
+                
+                const result = await res.json();
+                // 检查删除是否成功
+                if (result.error) {
+                    throw new Error(result.error);
+                }
                 alert('删除成功');
                 loadMyColumns();
-            } else {
-                alert(result.message || '删除失败');
+            } catch (err) {
+                console.error('删除失败:', err);
+                alert(err.message || '删除失败');
             }
         };
 
@@ -1429,19 +1644,75 @@
             const id = document.getElementById('column_id').value;
             const name = document.getElementById('column_name').value.trim();
             const desc = document.getElementById('column_description').value.trim();
-            const url = id ? '/api/column/update' : '/api/column/add';
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({ column_id: id, column_name: name, column_description: desc })
-            });
-            const result = await res.json();
-            if (result.success) {
+            
+            if (!name) {
+                alert('专栏名称不能为空');
+                return;
+            }
+            
+            // 从sessionStorage获取userId
+            const currentUserStr = sessionStorage.getItem('currentUser');
+            let userId = null;
+            if (currentUserStr) {
+                try {
+                    const currentUser = JSON.parse(currentUserStr);
+                    userId = currentUser.userId;
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                }
+            }
+            
+            if (!userId) {
+                alert('请先登录');
+                return;
+            }
+            
+            const columnData = {
+                columnName: name,
+                columnDescription: desc,
+                userId: userId
+            };
+            
+            try {
+                let res;
+                if (id) {
+                    // 更新专栏
+                    columnData.columnId = parseInt(id);
+                    res = await fetch(`/petblog/api/columns/${id}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify(columnData)
+                    });
+                } else {
+                    // 添加专栏
+                    res = await fetch('/petblog/api/columns', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify(columnData)
+                    });
+                }
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({error: id ? '修改失败' : '添加失败'}));
+                    throw new Error(errorData.error || (id ? '修改失败' : '添加失败'));
+                }
+                
+                const result = await res.json();
+                // 检查操作是否成功
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                // 验证返回的数据
+                if (!id && !result.columnId && !result.Column_id) {
+                    throw new Error('添加专栏失败：未返回专栏ID');
+                }
                 alert(id ? '修改成功' : '添加成功');
                 closeColumnModal();
+                document.getElementById('columnForm').reset();
                 loadMyColumns();
-            } else {
-                alert(result.message || (id ? '修改失败' : '添加失败'));
+            } catch (err) {
+                console.error('操作失败:', err);
+                alert(err.message || (id ? '修改失败' : '添加失败'));
             }
         };
 
@@ -1461,7 +1732,7 @@
         // 加载专栏中的博客
         async function loadColumnBlogs(columnId) {
             try {
-                const response = await fetch(`/api/columns/${columnId}/blogs`);
+                const response = await fetch(`/petblog/api/columns/${columnId}/blogs`);
                 const blogs = await response.json();
 
                 const container = document.getElementById('columnBlogsList');
@@ -1490,7 +1761,20 @@
         // 加载其他博客（不在当前专栏中的）
         async function loadOtherBlogs(columnId) {
             try {
-                const response = await fetch(`/api/blogs/my/not-in-column/${columnId}`);
+                // 从sessionStorage获取userId
+                const currentUserStr = sessionStorage.getItem('currentUser');
+                let userId = null;
+                if (currentUserStr) {
+                    try {
+                        const currentUser = JSON.parse(currentUserStr);
+                        userId = currentUser.userId;
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                    }
+                }
+                
+                const url = userId ? `/petblog/api/blogs/my/not-in-column/${columnId}?userId=${userId}` : `/petblog/api/blogs/my/not-in-column/${columnId}`;
+                const response = await fetch(url);
                 const blogs = await response.json();
 
                 const container = document.getElementById('otherBlogsList');
@@ -1575,31 +1859,62 @@
         // 加载收藏列表
         async function loadMyFavorites() {
             try {
-                const res = await fetch('/petblog/api/favorites/my');
-                const favorites = await res.json();
+                // 从URL参数或sessionStorage获取userId
+                const urlParams = new URLSearchParams(window.location.search);
+                let userId = urlParams.get('userId');
+                if (!userId) {
+                    const currentUserStr = sessionStorage.getItem('currentUser');
+                    if (currentUserStr) {
+                        try {
+                            const currentUser = JSON.parse(currentUserStr);
+                            userId = currentUser.userId;
+                        } catch (e) {
+                            console.error('解析用户信息失败:', e);
+                        }
+                    }
+                }
+                
+                const url = userId ? `/petblog/api/favorites?userId=${userId}` : '/petblog/api/favorites/my';
+                const res = await fetch(url);
+                let favorites = [];
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) {
+                        favorites = data;
+                    }
+                }
                 const list = document.getElementById('favoritesList');
                 
-                if (!favorites.length) {
+                if (!favorites || !favorites.length) {
                     list.innerHTML = '<p>暂无收藏</p>';
                     return;
                 }
                 
-                list.innerHTML = favorites.map(blog => `
+                list.innerHTML = favorites.map(blog => {
+                    const blogContent = blog.blog_content || blog.blogContent || '';
+                    const blogTitle = blog.blog_title || blog.blogTitle || '无标题';
+                    const userName = blog.user_name || blog.userName || '未知用户';
+                    const blogCreateTime = blog.blog_create_time || blog.blogCreateTime;
+                    const favoriteTime = blog.favorite_time || blog.favoriteTime;
+                    const columnName = blog.column_name || blog.columnName;
+                    
+                    return `
                     <div class="favorite-card" style="background:#fff;padding:18px 20px;margin-bottom:12px;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,0.06);">
                         <div style="display:flex;align-items:center;margin-bottom:8px;">
-                            <img src="${blog.user_avatar_path || '/images/Default avatar.png'}" alt="头像" style="width:32px;height:32px;border-radius:50%;margin-right:10px;">
-                            <span style="font-weight:bold;">${blog.user_name}</span>
-                            <span style="color:#888;margin-left:10px;font-size:12px;">${new Date(blog.blog_create_time).toLocaleString()}</span>
+                            <img src="${(blog.user_avatar_path || blog.userAvatarPath || '/petblog/images/Default avatar.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="头像" style="width:32px;height:32px;border-radius:50%;margin-right:10px;">
+                            <span style="font-weight:bold;">${userName}</span>
+                            <span style="color:#888;margin-left:10px;font-size:12px;">${blogCreateTime ? new Date(blogCreateTime).toLocaleString() : ''}</span>
                         </div>
-                        <div style="font-size:16px;font-weight:bold;color:#3498db;margin-bottom:6px;">${blog.blog_title}</div>
-                        <div style="color:#333;margin-bottom:8px;white-space:pre-line;">${processImageContent(blog.blog_content.substring(0, 100))}${blog.blog_content.length > 100 ? '...' : ''}</div>
-                        ${blog.column_name ? `<span style="background:#f5eaff;color:#8e44ad;border-radius:12px;padding:2px 10px;font-size:12px;margin-right:8px;">${blog.column_name}</span>` : ''}
-                        <div style="font-size:12px;color:#aaa;margin-top:8px;">收藏时间：${new Date(blog.favorite_time).toLocaleString()}</div>
+                        <div style="font-size:16px;font-weight:bold;color:#3498db;margin-bottom:6px;">${blogTitle}</div>
+                        <div style="color:#333;margin-bottom:8px;white-space:pre-line;">${blogContent ? (processImageContent(blogContent.substring(0, 100)) + (blogContent.length > 100 ? '...' : '')) : '无内容'}</div>
+                        ${columnName ? `<span style="background:#f5eaff;color:#8e44ad;border-radius:12px;padding:2px 10px;font-size:12px;margin-right:8px;">${columnName}</span>` : ''}
+                        <div style="font-size:12px;color:#aaa;margin-top:8px;">收藏时间：${favoriteTime ? new Date(favoriteTime).toLocaleString() : '未知'}</div>
                         <div style="margin-top:10px;">
-                            <button class="btn" onclick="removeFavorite(${blog.blog_id})" style="background:#e74c3c;">取消收藏</button>
+                            <button class="btn" onclick="removeFavorite(${blog.blog_id || blog.blogId})" style="background:#e74c3c;">取消收藏</button>
                         </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
             } catch (error) {
                 console.error('加载收藏列表失败:', error);
                 document.getElementById('favoritesList').innerHTML = '<p>加载收藏列表失败</p>';
@@ -1664,7 +1979,7 @@
                     <div class="follows-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;">
                         ${following.map(user => `
                             <div class="follow-card" style="background:#fff;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
-                                <img src="${user.user_avatar_path || '/images/Default avatar.png'}" alt="头像" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;object-fit:cover;">
+                                <img src="${(user.user_avatar_path || user.userAvatarPath || '/petblog/images/Default avatar.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="头像" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;object-fit:cover;">
                                 <div style="font-weight:bold;color:#2c3e50;margin-bottom:5px;">${user.user_name}</div>
                                 <button class="btn" onclick="unfollowUser(${user.user_id})" style="background:#e74c3c;margin-top:10px;width:100%;">取消关注</button>
                             </div>
@@ -1712,7 +2027,7 @@
                     <div class="follows-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;">
                         ${followers.map(user => `
                             <div class="follow-card" style="background:#fff;padding:15px;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
-                                <img src="${user.user_avatar_path || '/images/Default avatar.png'}" alt="头像" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;object-fit:cover;">
+                                <img src="${(user.user_avatar_path || user.userAvatarPath || '/petblog/images/Default avatar.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="头像" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;object-fit:cover;">
                                 <div style="font-weight:bold;color:#2c3e50;margin-bottom:5px;">${user.user_name}</div>
                                 <button class="btn" onclick="followUser(${user.user_id}, this)" style="background:${user.is_following ? '#27ae60' : '#3498db'};margin-top:10px;width:100%;">
                                     ${user.is_following ? '已关注' : '关注'}
@@ -1810,6 +2125,27 @@
         // 获取当前用户ID的辅助函数
         async function getCurrentUserId() {
             try {
+                // 优先从URL参数获取userId
+                const urlParams = new URLSearchParams(window.location.search);
+                let userId = urlParams.get('userId');
+                
+                if (userId) {
+                    return parseInt(userId);
+                }
+                
+                // 从sessionStorage获取
+                const currentUserStr = sessionStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    try {
+                        const currentUser = JSON.parse(currentUserStr);
+                        if (currentUser.userId) {
+                            return currentUser.userId;
+                        }
+                    } catch (e) {
+                        console.error('解析用户信息失败:', e);
+                    }
+                }
+                
                 // 从服务器获取当前登录用户信息
                 const response = await fetch('/petblog/api/user/profile');
                 if (!response.ok) {
@@ -1820,10 +2156,12 @@
                 const userData = await response.json();
                 console.log('获取到的用户信息:', userData);
                 
-                if (userData && userData.user_id) {
+                if (userData && userData.userId) {
+                    return userData.userId;
+                } else if (userData && userData.user_id) {
                     return userData.user_id;
                 } else {
-                    console.error('用户信息中没有user_id字段');
+                    console.error('用户信息中没有userId字段');
                     return null;
                 }
             } catch (error) {
@@ -1886,12 +2224,31 @@
         // 加载我的喜欢（点赞的博客）
         async function loadMyLikes() {
             try {
-                const response = await fetch('/petblog/api/likes/my');
-                if (!response.ok) {
-                    throw new Error(`服务器返回错误: ${response.status}`);
+                // 从URL参数或sessionStorage获取userId
+                const urlParams = new URLSearchParams(window.location.search);
+                let userId = urlParams.get('userId');
+                if (!userId) {
+                    const currentUserStr = sessionStorage.getItem('currentUser');
+                    if (currentUserStr) {
+                        try {
+                            const currentUser = JSON.parse(currentUserStr);
+                            userId = currentUser.userId;
+                        } catch (e) {
+                            console.error('解析用户信息失败:', e);
+                        }
+                    }
                 }
                 
-                const likes = await response.json();
+                const url = userId ? `/petblog/api/likes?userId=${userId}` : '/petblog/api/likes/my';
+                const response = await fetch(url);
+                let likes = [];
+                if (response.ok) {
+                    const data = await response.json();
+                    if (Array.isArray(data)) {
+                        likes = data;
+                    }
+                }
+                
                 const likesList = document.getElementById('likesList');
                 
                 if (!likes || likes.length === 0) {
@@ -1910,22 +2267,28 @@
                         attachmentHtml += '</div>';
                     }
                     
+                    const blogContent = blog.blog_content || blog.blogContent || '';
+                    const blogTitle = blog.blog_title || blog.blogTitle || '无标题';
+                    const userName = blog.user_name || blog.userName || '未知用户';
+                    const blogCreateTime = blog.blog_create_time || blog.blogCreateTime;
+                    const likeTime = blog.like_time || blog.likeTime;
+                    
                     return `
                         <div class="favorite-card" style="background:#fff;padding:18px 20px;margin-bottom:12px;border-radius:10px;box-shadow:0 2px 8px rgba(44,62,80,0.06);">
                             <div style="display:flex;align-items:center;margin-bottom:8px;">
-                                <img src="${blog.user_avatar_path || '/images/Default avatar.png'}" alt="头像" style="width:32px;height:32px;border-radius:50%;margin-right:10px;">
-                                <span style="font-weight:bold;">${blog.user_name}</span>
-                                <span style="color:#888;margin-left:10px;font-size:12px;">${new Date(blog.blog_create_time).toLocaleString()}</span>
+                                <img src="${(blog.user_avatar_path || blog.userAvatarPath || '/petblog/images/Default avatar.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="头像" style="width:32px;height:32px;border-radius:50%;margin-right:10px;">
+                                <span style="font-weight:bold;">${userName}</span>
+                                <span style="color:#888;margin-left:10px;font-size:12px;">${blogCreateTime ? new Date(blogCreateTime).toLocaleString() : ''}</span>
                             </div>
-                            <div style="font-size:16px;font-weight:bold;color:#3498db;margin-bottom:6px;">${blog.blog_title}</div>
-                            <div style="color:#333;margin-bottom:8px;white-space:pre-line;">${processImageContent(blog.blog_content.substring(0, 100))}${blog.blog_content.length > 100 ? '...' : ''}</div>
+                            <div style="font-size:16px;font-weight:bold;color:#3498db;margin-bottom:6px;">${blogTitle}</div>
+                            <div style="color:#333;margin-bottom:8px;white-space:pre-line;">${blogContent ? (processImageContent(blogContent.substring(0, 100)) + (blogContent.length > 100 ? '...' : '')) : '无内容'}</div>
                             ${blog.pets && blog.pets.length > 0 ? `
                                 <div style="margin-bottom:8px;">
                                     <span style="font-size:12px;color:#888;">提到的狗狗：</span>
                                     ${blog.pets.map(pet => `
                                         <span style="display:inline-flex;align-items:center;background:#f0f8f7;padding:2px 8px;border-radius:10px;margin-right:5px;font-size:12px;">
-                                            <img src="${pet.pet_avatar_path || '/images/default-pet.png'}" alt="${pet.pet_name}" style="width:16px;height:16px;border-radius:50%;margin-right:4px;object-fit:cover;">
-                                            ${pet.pet_name}
+                                            <img src="${(pet.pet_avatar_path || pet.petAvatarPath || '/petblog/images/default-pet.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="${pet.pet_name || pet.petName || '未知'}" style="width:16px;height:16px;border-radius:50%;margin-right:4px;object-fit:cover;">
+                                            ${pet.pet_name || pet.petName || '未知'}
                                         </span>
                                     `).join('')}
                                 </div>
@@ -1937,9 +2300,9 @@
                                     ${blog.topics.map(topic => `<span style="background:#eaf6ff;color:#3498db;border-radius:12px;padding:2px 10px;font-size:12px;margin-right:5px;">#${topic}</span>`).join('')}
                                 </div>
                             ` : ''}
-                            <div style="font-size:12px;color:#aaa;margin-top:8px;">点赞时间：${new Date(blog.like_time).toLocaleString()}</div>
+                            <div style="font-size:12px;color:#aaa;margin-top:8px;">点赞时间：${likeTime ? new Date(likeTime).toLocaleString() : '未知'}</div>
                             <div style="margin-top:10px;">
-                                <button class="btn" onclick="removeLike(${blog.blog_id})" style="background:#e74c3c;">取消点赞</button>
+                                <button class="btn" onclick="removeLike(${blog.blog_id || blog.blogId})" style="background:#e74c3c;">取消点赞</button>
                             </div>
                         </div>
                     `;
@@ -2001,7 +2364,7 @@
                 }
                 container.innerHTML = users.map(user => `
                     <div class="recommend-user-item">
-                        <img class="recommend-user-avatar" src="${user.user_avatar_path || '/images/Default avatar.png'}" alt="头像">
+                        <img class="recommend-user-avatar" src="${(user.user_avatar_path || user.userAvatarPath || '/petblog/images/Default avatar.png').replace(/\\/g, '/').replace('public/', '/').replace(/^\/images\//, '/petblog/images/')}" alt="头像">
                         <div class="recommend-user-info">
                             <div class="recommend-user-name">${user.user_name}</div>
                             <div class="recommend-user-stats">

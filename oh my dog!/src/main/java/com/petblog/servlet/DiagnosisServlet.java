@@ -1,0 +1,940 @@
+package com.petblog.servlet;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.petblog.Service.ConsultationService;
+import com.petblog.Service.DiagnosisExplanationService;
+import com.petblog.Service.DiagnosisService;
+import com.petblog.Service.DiseaseService;
+import com.petblog.Service.DiseaseSymptomService;
+import com.petblog.Service.SymptomService;
+import com.petblog.Service.StructuredQuestionService;
+import com.petblog.model.Consultation;
+import com.petblog.model.Disease;
+import com.petblog.model.DiseaseSymptom;
+import com.petblog.model.Symptom;
+import com.petblog.model.SymptomQuestion;
+import com.petblog.model.DiagnosisSession;
+import com.petblog.util.JsonUtil;
+import com.petblog.util.NaiveBayes;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 诊断问诊控制器
+ * 提供动态问诊功能，包括：
+ * - 获取第一个问题
+ * - 获取下一个问题
+ * - 执行诊断
+ * - 保存问诊记录
+ */
+@WebServlet("/api/diagnosis/*")
+public class DiagnosisServlet extends HttpServlet {
+    private final SymptomService symptomService = new SymptomService();
+    private final DiseaseService diseaseService = new DiseaseService();
+    private final DiseaseSymptomService diseaseSymptomService = new DiseaseSymptomService();
+    private final ConsultationService consultationService = new ConsultationService();
+    private final DiagnosisExplanationService explanationService = new DiagnosisExplanationService();
+    private final StructuredQuestionService structuredQuestionService = new StructuredQuestionService();
+    private final DiagnosisService diagnosisService = new DiagnosisService(); // 新的核心诊断服务
+    private final ObjectMapper objectMapper = JsonUtil.getObjectMapper();
+
+    /**
+     * 构建疾病-症状关系映射
+     */
+    private Map<Integer, List<DiseaseSymptom>> buildDiseaseSymptomMap() {
+        Map<Integer, List<DiseaseSymptom>> map = new HashMap<>();
+        List<DiseaseSymptom> allRelations = diseaseSymptomService.getAllRelations();
+        
+        if (allRelations != null) {
+            for (DiseaseSymptom ds : allRelations) {
+                Integer diseaseId = ds.getDiseaseId();
+                if (!map.containsKey(diseaseId)) {
+                    map.put(diseaseId, new ArrayList<>());
+                }
+                map.get(diseaseId).add(ds);
+            }
+        }
+        
+        return map;
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+
+        String pathInfo = request.getPathInfo();
+
+        try {
+            if (pathInfo != null && pathInfo.equals("/history")) {
+                // GET /api/diagnosis/history?userId=xxx - 获取用户的问诊历史
+                String userIdStr = request.getParameter("userId");
+                if (userIdStr == null || userIdStr.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"userId参数不能为空\"}");
+                    return;
+                }
+                
+                try {
+                    Integer userId = Integer.parseInt(userIdStr);
+                    List<Consultation> consultations = consultationService.getConsultationsByUserId(userId);
+                    
+                    // 转换为前端需要的格式：显示诊断结果和诊断时间，而不是症状
+                    List<Map<String, Object>> consultationList = new ArrayList<>();
+                    if (consultations != null) {
+                        DiseaseService diseaseService = new DiseaseService();
+                    for (Consultation consultation : consultations) {
+                        Map<String, Object> consultationMap = new HashMap<>();
+                        consultationMap.put("id", consultation.getId());
+                        consultationMap.put("userId", consultation.getUserId());
+                        consultationMap.put("createdAt", consultation.getCreatedAt());
+                        
+                        // 正确获取probability，可能为null
+                        Float prob = consultation.getProbability();
+                        consultationMap.put("probability", prob != null ? prob : null);
+                        
+                        System.out.println("DiagnosisServlet /history: 查询到的记录 - id=" + consultation.getId() + 
+                                         ", resultDiseaseId=" + consultation.getResultDiseaseId() + 
+                                         ", probability=" + prob);
+                        
+                        // 获取疾病名称
+                        if (consultation.getResultDiseaseId() != null) {
+                            Disease disease = diseaseService.getDiseaseById(consultation.getResultDiseaseId());
+                            String diseaseName = disease != null ? disease.getName() : "未知疾病";
+                            consultationMap.put("diseaseName", diseaseName);
+                            consultationMap.put("diseaseId", consultation.getResultDiseaseId());
+                            System.out.println("DiagnosisServlet /history: 疾病ID=" + consultation.getResultDiseaseId() + 
+                                             ", 疾病名称=" + diseaseName);
+                        } else {
+                            consultationMap.put("diseaseName", "未诊断");
+                            consultationMap.put("diseaseId", null);
+                            System.out.println("DiagnosisServlet /history: 记录ID=" + consultation.getId() + " 未诊断");
+                        }
+                        
+                        consultationList.add(consultationMap);
+                    }
+                    }
+                    
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("consultations", consultationList);
+                    
+                    out.print(objectMapper.writeValueAsString(result));
+                } catch (NumberFormatException e) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"userId参数格式错误\"}");
+                }
+            } else if (pathInfo != null && pathInfo.equals("/start")) {
+                // GET /api/diagnosis/start - 获取主诉问题列表
+                List<SymptomQuestion> mainComplaints = structuredQuestionService.getMainComplaintQuestions();
+                
+                if (mainComplaints == null || mainComplaints.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    out.print("{\"error\":\"没有可用的主诉数据\"}");
+                    return;
+                }
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("questions", mainComplaints);
+                result.put("type", "main_complaint");
+                
+                out.print(objectMapper.writeValueAsString(result));
+                
+            } else if (pathInfo != null && pathInfo.equals("/symptoms")) {
+                // GET /api/diagnosis/symptoms - 获取所有症状列表
+                List<Symptom> allSymptoms = symptomService.getAllSymptoms();
+                
+                if (allSymptoms == null) {
+                    allSymptoms = new ArrayList<>();
+                }
+                
+                out.print(objectMapper.writeValueAsString(allSymptoms));
+                
+            } else if (pathInfo != null && pathInfo.startsWith("/evidence/")) {
+                // GET /api/diagnosis/evidence/{diseaseId}?selectedSymptoms=[1,2,3] - 获取疾病的证据症状
+                try {
+                    String[] splits = pathInfo.split("/");
+                    if (splits.length < 3) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        out.print("{\"error\":\"需要提供疾病ID\"}");
+                        return;
+                    }
+                    
+                    Integer diseaseId = Integer.valueOf(splits[2]);
+                    String selectedSymptomsStr = request.getParameter("selectedSymptoms");
+                    
+                    List<Integer> selectedSymptoms = new ArrayList<>();
+                    if (selectedSymptomsStr != null && !selectedSymptomsStr.isEmpty()) {
+                        try {
+                            @SuppressWarnings("unchecked")
+                            List<Integer> symptoms = objectMapper.readValue(selectedSymptomsStr,
+                                objectMapper.getTypeFactory().constructCollectionType(List.class, Integer.class));
+                            if (symptoms != null) {
+                                selectedSymptoms = symptoms;
+                            }
+                        } catch (Exception e) {
+                            // 忽略解析错误，使用空列表
+                        }
+                    }
+                    
+                    Map<Integer, List<DiseaseSymptom>> diseaseSymMap = buildDiseaseSymptomMap();
+                    List<Map<String, Object>> evidenceSymptoms = getEvidenceSymptoms(
+                        diseaseId, selectedSymptoms, diseaseSymMap, symptomService);
+                    
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("diseaseId", diseaseId);
+                    result.put("evidenceSymptoms", evidenceSymptoms);
+                    
+                    out.print(objectMapper.writeValueAsString(result));
+                } catch (NumberFormatException e) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"疾病ID格式错误\"}");
+                } catch (Exception e) {
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    out.print("{\"error\":\"获取证据症状失败: " + e.getMessage() + "\"}");
+                    e.printStackTrace();
+                }
+                
+            } else {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"error\":\"Invalid path\"}");
+            }
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            out.print("{\"error\":\"服务器错误: " + e.getMessage() + "\"}");
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        response.setContentType("application/json;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+
+        String pathInfo = request.getPathInfo();
+
+        // 读取请求体
+        StringBuilder sb = new StringBuilder();
+        BufferedReader reader = request.getReader();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
+
+        try {
+            if (pathInfo != null && pathInfo.equals("/next")) {
+                // POST /api/diagnosis/next - 获取下一个问题（支持结构化问诊）
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestData = objectMapper.readValue(sb.toString(),
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedSymptoms = (List<Integer>) requestData.get("selectedSymptoms");
+                
+                // 允许selectedSymptoms为空数组（第一次调用或跳过问题时）
+                if (selectedSymptoms == null) {
+                    selectedSymptoms = new ArrayList<>();
+                }
+                
+                // 获取所有已问过的症状（包括选择"是"、"否"和"不确定"的）
+                @SuppressWarnings("unchecked") List<Integer> askedSymptoms = (List<Integer>) requestData.get("askedSymptoms");
+                if (askedSymptoms == null) {
+                    askedSymptoms = new ArrayList<>(selectedSymptoms);
+                }
+                System.out.println("DiagnosisServlet /next: 接收到的askedSymptoms=" + askedSymptoms + "，数量=" + askedSymptoms.size());
+                
+                // 获取回答"不确定"的症状列表
+                @SuppressWarnings("unchecked") List<Integer> uncertainSymptoms = (List<Integer>) requestData.get("uncertainSymptoms");
+                if (uncertainSymptoms == null) {
+                    uncertainSymptoms = new ArrayList<>();
+                }
+                System.out.println("DiagnosisServlet /next: 接收到的uncertainSymptoms=" + uncertainSymptoms + "，数量=" + uncertainSymptoms.size());
+                
+                // 获取已回答的问题总数
+                Integer totalQuestions = (Integer) requestData.get("questionCount");
+                if (totalQuestions == null) {
+                    totalQuestions = askedSymptoms.size();
+                }
+                
+                // 获取主诉ID（如果已选择主诉）
+                Integer mainComplaintId = (Integer) requestData.get("mainComplaintId");
+                System.out.println("DiagnosisServlet /next: 接收到的mainComplaintId=" + mainComplaintId);
+                
+                // 获取已回答的问题维度（用于动态追问）
+                String answeredDimensionStr = (String) requestData.get("answeredDimension");
+                SymptomQuestion.QuestionDimension answeredDimension = null;
+                if (answeredDimensionStr != null) {
+                    try {
+                        answeredDimension = SymptomQuestion.QuestionDimension.valueOf(answeredDimensionStr);
+                    } catch (IllegalArgumentException e) {
+                        // 忽略无效的维度值
+                    }
+                }
+                
+                // 获取结构化问题的答案（用于计算严重程度）
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> structuredAnswers = (List<Map<String, Object>>) requestData.get("structuredAnswers");
+                // 如果没有传递，尝试从questionHistory中获取
+                if (structuredAnswers == null) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> questionHistory = (List<Map<String, Object>>) requestData.get("questionHistory");
+                    if (questionHistory != null) {
+                        structuredAnswers = new ArrayList<>();
+                        for (Map<String, Object> q : questionHistory) {
+                            if (q.get("dimension") != null) {
+                                Map<String, Object> answer = new HashMap<>();
+                                answer.put("dimension", q.get("dimension"));
+                                answer.put("answer", q.get("description")); // 答案内容
+                                structuredAnswers.add(answer);
+                            }
+                        }
+                    }
+                }
+
+                // 获取所有疾病和关系（用于结构化问诊切换判断）
+                List<Disease> allDiseases = diseaseService.getAllDiseases();
+                Map<Integer, List<DiseaseSymptom>> diseaseSymMap = buildDiseaseSymptomMap();
+                
+                // 计算当前疾病概率分布（用于智能切换和跳过判断）
+                Map<Integer, Double> diseaseProbs = null;
+                if (!selectedSymptoms.isEmpty() && allDiseases != null && diseaseSymMap != null) {
+                    // 使用 NaiveBayes 计算概率分布（用于结构化问诊切换判断）
+                    List<NaiveBayes.Result> tempResults = NaiveBayes.diagnoseMultiple(
+                        selectedSymptoms, allDiseases, diseaseSymMap, 0);
+                    if (tempResults != null && !tempResults.isEmpty()) {
+                        diseaseProbs = new HashMap<>();
+                        for (NaiveBayes.Result r : tempResults) {
+                            diseaseProbs.put(r.diseaseId, r.probability);
+                        }
+                    }
+                }
+
+                // 用于存储过渡提示信息（从结构化问题切换到决策树时使用）
+                String transitionMessage = null;
+
+                // 如果已选择主诉，生成相关追问（支持智能跳过）
+                if (mainComplaintId != null && answeredDimension != null) {
+                    // 计算已问的结构化问题数量（用于判断是否切换到决策树）
+                    int structuredQuestionCount = 0;
+                    if (answeredDimension != null) {
+                        SymptomQuestion.QuestionDimension[] dimensions = SymptomQuestion.QuestionDimension.values();
+                        for (int i = 0; i < dimensions.length; i++) {
+                            if (dimensions[i] == answeredDimension) {
+                                structuredQuestionCount = i + 1; // 已问的问题数
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 改进的智能切换策略：
+                    // 1. 如果已问3个以上结构化问题，且某个疾病概率>30%，切换到决策树
+                    // 2. 如果已问4个以上结构化问题，且最大疾病概率>15%，切换到决策树（提前切换）
+                    // 3. 如果已问6个以上结构化问题，强制切换到决策树（诊断偏移机制）
+                    // 4. 如果已问3个以上结构化问题，但所有疾病概率都<10%，提前切换到决策树
+                    boolean shouldSwitchToDecisionTree = false;
+                    
+                    System.out.println("结构化问诊切换判断：已问结构化问题数=" + structuredQuestionCount);
+                    
+                    if (structuredQuestionCount >= 6) {
+                        // 诊断偏移机制：问了很多问题仍无明确结果，强制切换
+                        shouldSwitchToDecisionTree = true;
+                        transitionMessage = "已完成主要症状的详细询问，现在将根据当前症状智能选择后续问题。";
+                        System.out.println("结构化问诊切换：已问6个以上问题，诊断偏移机制触发，强制切换到决策树");
+                    } else if (structuredQuestionCount >= 4 && diseaseProbs != null) {
+                        // 提前切换：4个问题后，如果概率>15%就切换
+                        double maxProb = diseaseProbs.values().stream()
+                            .mapToDouble(Double::doubleValue)
+                            .max()
+                            .orElse(0.0);
+                        System.out.println("结构化问诊切换：已问" + structuredQuestionCount + "个问题，最大疾病概率=" + (maxProb * 100) + "%");
+                        if (maxProb > 0.15) {
+                            shouldSwitchToDecisionTree = true;
+                            transitionMessage = "根据当前症状，系统已初步判断可能的疾病方向，现在将针对性地询问相关问题。";
+                            System.out.println("结构化问诊切换：疾病概率超过15%，提前切换到决策树");
+                        }
+                    } else if (structuredQuestionCount >= 3 && diseaseProbs != null) {
+                        double maxProb = diseaseProbs.values().stream()
+                            .mapToDouble(Double::doubleValue)
+                            .max()
+                            .orElse(0.0);
+                        double minProb = diseaseProbs.values().stream()
+                            .mapToDouble(Double::doubleValue)
+                            .min()
+                            .orElse(0.0);
+                        System.out.println("结构化问诊切换：已问" + structuredQuestionCount + "个问题，最大疾病概率=" + (maxProb * 100) + "%，最小=" + (minProb * 100) + "%");
+                        
+                        // 如果所有疾病概率都<10%，提前切换到决策树
+                        if (maxProb < 0.10) {
+                            shouldSwitchToDecisionTree = true;
+                            transitionMessage = "当前症状信息不足，系统将智能选择更有针对性的问题。";
+                            System.out.println("结构化问诊切换：所有疾病概率都<10%，提前切换到决策树");
+                        } else if (maxProb > 0.3) {
+                            shouldSwitchToDecisionTree = true;
+                            transitionMessage = "根据当前症状，系统已初步判断可能的疾病方向，现在将针对性地询问相关问题。";
+                            System.out.println("结构化问诊切换：疾病概率超过30%，切换到决策树");
+                        } else {
+                            System.out.println("结构化问诊切换：疾病概率在10%-30%之间，继续结构化问诊");
+                        }
+                    } else {
+                        System.out.println("结构化问诊切换：未满足切换条件（已问问题数=" + structuredQuestionCount + "），继续结构化问诊");
+                    }
+                    
+                    if (!shouldSwitchToDecisionTree) {
+                        // 继续使用结构化问题（支持智能跳过）
+                        SymptomQuestion nextQuestion = structuredQuestionService.getNextFollowUpQuestion(
+                            mainComplaintId, answeredDimension, selectedSymptoms, diseaseProbs, diseaseSymMap);
+                        
+                        if (nextQuestion != null) {
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("symptomId", nextQuestion.getSymptomId());
+                            result.put("name", nextQuestion.getSymptomName());
+                            result.put("questionText", nextQuestion.getQuestionText());
+                            result.put("options", nextQuestion.getOptions());
+                            result.put("isMultiple", nextQuestion.getIsMultiple());
+                            result.put("questionType", nextQuestion.getQuestionType().name());
+                            result.put("dimension", nextQuestion.getDimension() != null ? nextQuestion.getDimension().name() : null);
+                            result.put("parentSymptomId", nextQuestion.getParentSymptomId());
+                            result.put("finished", false);
+                            result.put("structured", true);
+                            result.put("transitionMessage", null); // 继续结构化问题，无过渡提示
+                            
+                            out.print(objectMapper.writeValueAsString(result));
+                            return;
+                        } else {
+                            // 结构化问题已问完，切换到决策树
+                            transitionMessage = "已完成主要症状的详细询问，现在将根据当前症状智能选择后续问题。";
+                        }
+                    }
+                }
+
+                // 使用新的 DiagnosisService 获取下一个问题（基于Top疾病的智能选择）
+                // 注意：DiagnosisService 内部已经包含了停止止损机制，不需要在这里重复检查
+                DiagnosisSession session = new DiagnosisSession();
+                session.setSelectedSymptoms(selectedSymptoms);
+                session.setAskedSymptoms(askedSymptoms != null ? askedSymptoms : new ArrayList<>());
+                session.setUncertainSymptoms(uncertainSymptoms != null ? uncertainSymptoms : new ArrayList<>());
+                session.setQuestionCount(totalQuestions != null ? totalQuestions : (askedSymptoms != null ? askedSymptoms.size() : 0));
+                session.setMainComplaintId(mainComplaintId);
+                
+                Map<String, Object> nextStepResult = diagnosisService.nextStep(session);
+                
+                if (nextStepResult.get("finished") != null && (Boolean) nextStepResult.get("finished")) {
+                    // 诊断完成 - 使用 DiagnosisService 返回的格式化结果
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("finished", true);
+                    
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> diseasesList = (List<Map<String, Object>>) nextStepResult.get("diseases");
+                    
+                    // 为每个疾病添加证据和诊疗建议（如果 DiagnosisService 没有提供）
+                    if (diseasesList != null) {
+                        for (Map<String, Object> diseaseMap : diseasesList) {
+                            // 如果 DiagnosisService 已经提供了 evidenceSymptoms，就不需要再获取
+                            if (!diseaseMap.containsKey("evidenceSymptoms") || 
+                                diseaseMap.get("evidenceSymptoms") == null ||
+                                ((List<?>) diseaseMap.get("evidenceSymptoms")).isEmpty()) {
+                                
+                                Integer diseaseId = (Integer) diseaseMap.get("diseaseId");
+                                if (diseaseId != null) {
+                                    List<Map<String, Object>> evidenceSymptoms = getEvidenceSymptoms(
+                                        diseaseId, selectedSymptoms, diseaseSymMap, symptomService);
+                                    diseaseMap.put("evidenceSymptoms", evidenceSymptoms);
+                                }
+                            }
+                            
+                            // 如果 DiagnosisService 没有提供 recommendation，生成一个
+                            if (!diseaseMap.containsKey("recommendation") || diseaseMap.get("recommendation") == null) {
+                                String diseaseName = (String) diseaseMap.get("disease");
+                                Double probability = (Double) diseaseMap.get("probability");
+                                Integer diseaseId = (Integer) diseaseMap.get("diseaseId");
+                                if (diseaseName != null && probability != null && diseaseId != null) {
+                                    String recommendation = generateRecommendation(
+                                        diseaseName, probability, diseaseId, structuredAnswers);
+                                    diseaseMap.put("recommendation", recommendation);
+                                }
+                            }
+                        }
+                    }
+                    
+                    result.put("diseases", diseasesList);
+                    out.print(objectMapper.writeValueAsString(result));
+                    return;
+                } else if (nextStepResult.get("nextQuestion") != null) {
+                    // 返回下一个问题
+                    Symptom nextSymptom = (Symptom) nextStepResult.get("nextQuestion");
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("finished", false);
+                    result.put("symptomId", nextSymptom.getId());
+                    result.put("name", nextSymptom.getName());
+                    result.put("description", "");
+                    result.put("structured", false);
+                    result.put("transitionMessage", transitionMessage);
+                    out.print(objectMapper.writeValueAsString(result));
+                    return;
+                } else {
+                    // DiagnosisService 返回了 error 或既没有 finished 也没有 nextQuestion
+                    if (nextStepResult.containsKey("error")) {
+                        // 如果有错误信息，返回错误
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        out.print("{\"error\":\"" + nextStepResult.get("error") + "\"}");
+                        return;
+                    } else {
+                        // 这种情况不应该发生，但为了安全，返回错误
+                        System.out.println("DiagnosisServlet: DiagnosisService 返回了意外的结果: " + nextStepResult);
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        out.print("{\"error\":\"无法获取下一个问题，请重试\"}");
+                        return;
+                    }
+                }
+                
+            } else if (pathInfo != null && pathInfo.equals("/followup")) {
+                // POST /api/diagnosis/followup - 根据主诉生成相关追问
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestData = objectMapper.readValue(sb.toString(),
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+                
+                Integer mainComplaintId = (Integer) requestData.get("mainComplaintId");
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedSymptoms = (List<Integer>) requestData.get("selectedSymptoms");
+                if (selectedSymptoms == null) {
+                    selectedSymptoms = new ArrayList<>();
+                }
+                
+                if (mainComplaintId == null) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"主诉ID不能为空\"}");
+                    return;
+                }
+                
+                // 生成相关追问
+                List<SymptomQuestion> followUpQuestions = structuredQuestionService.getFollowUpQuestions(
+                    mainComplaintId, selectedSymptoms);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("questions", followUpQuestions);
+                result.put("type", "follow_up");
+                
+                out.print(objectMapper.writeValueAsString(result));
+                
+            } else if (pathInfo != null && pathInfo.equals("/diagnose")) {
+                // POST /api/diagnosis/diagnose - 直接执行诊断（不继续提问）
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestData = objectMapper.readValue(sb.toString(),
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedSymptoms = (List<Integer>) requestData.get("selectedSymptoms");
+                
+                if (selectedSymptoms == null || selectedSymptoms.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"selectedSymptoms不能为空\"}");
+                    return;
+                }
+                
+                // 获取结构化问题的答案（用于计算严重程度）
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> structuredAnswers = (List<Map<String, Object>>) requestData.get("structuredAnswers");
+                if (structuredAnswers == null) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> questionHistory = (List<Map<String, Object>>) requestData.get("questionHistory");
+                    if (questionHistory != null) {
+                        structuredAnswers = new ArrayList<>();
+                        for (Map<String, Object> q : questionHistory) {
+                            if (q.get("dimension") != null) {
+                                Map<String, Object> answer = new HashMap<>();
+                                answer.put("dimension", q.get("dimension"));
+                                answer.put("answer", q.get("description"));
+                                structuredAnswers.add(answer);
+                            }
+                        }
+                    }
+                }
+
+                // 获取所有疾病和关系
+                List<Disease> allDiseases = diseaseService.getAllDiseases();
+                Map<Integer, List<DiseaseSymptom>> diseaseSymMap = buildDiseaseSymptomMap();
+
+                // 执行诊断 - 返回多个可能的疾病（前5个）
+                List<NaiveBayes.Result> diagnoses = NaiveBayes.diagnoseMultiple(selectedSymptoms, allDiseases, diseaseSymMap, 5);
+                
+                Map<String, Object> result = new HashMap<>();
+                if (diagnoses != null && !diagnoses.isEmpty()) {
+                    result.put("finished", true);
+                    
+                    // 转换为前端需要的格式，包含证据和诊疗建议
+                    List<Map<String, Object>> diseasesList = new ArrayList<>();
+                    for (NaiveBayes.Result d : diagnoses) {
+                        Map<String, Object> diseaseMap = new HashMap<>();
+                        diseaseMap.put("disease", d.disease);
+                        diseaseMap.put("diseaseId", d.diseaseId);
+                        diseaseMap.put("probability", d.probability);
+                        
+                        // 获取支持该疾病的症状（证据）
+                        List<Map<String, Object>> evidenceSymptoms = getEvidenceSymptoms(
+                            d.diseaseId, selectedSymptoms, diseaseSymMap, symptomService);
+                        diseaseMap.put("evidenceSymptoms", evidenceSymptoms);
+                        
+                        // 根据概率和疾病严重程度生成诊疗建议
+                        String recommendation = generateRecommendation(d.disease, d.probability, d.diseaseId, structuredAnswers);
+                        diseaseMap.put("recommendation", recommendation);
+                        
+                        diseasesList.add(diseaseMap);
+                    }
+                    result.put("diseases", diseasesList);
+                } else {
+                    result.put("finished", true);
+                    result.put("diseases", new ArrayList<>());
+                    result.put("error", "无法诊断，请选择更多症状");
+                }
+                
+                out.print(objectMapper.writeValueAsString(result));
+                
+            } else if (pathInfo != null && pathInfo.equals("/save")) {
+                // POST /api/diagnosis/save - 保存问诊记录
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestData = objectMapper.readValue(sb.toString(),
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+
+                Integer userId = requestData.get("userId") != null ? 
+                    (requestData.get("userId") instanceof Integer ? (Integer) requestData.get("userId") : 
+                     Integer.valueOf(requestData.get("userId").toString())) : null;
+                
+                @SuppressWarnings("unchecked")
+                List<Integer> selectedSymptoms = (List<Integer>) requestData.get("selectedSymptoms");
+                Integer resultDiseaseId = null;
+                if (requestData.get("resultDiseaseId") != null) {
+                    Object diseaseIdObj = requestData.get("resultDiseaseId");
+                    if (diseaseIdObj instanceof Integer) {
+                        resultDiseaseId = (Integer) diseaseIdObj;
+                    } else if (diseaseIdObj instanceof Number) {
+                        resultDiseaseId = ((Number) diseaseIdObj).intValue();
+                    } else {
+                        try {
+                            resultDiseaseId = Integer.valueOf(diseaseIdObj.toString());
+                        } catch (NumberFormatException e) {
+                            resultDiseaseId = null;
+                        }
+                    }
+                }
+                
+                Float probability = null;
+                if (requestData.get("probability") != null) {
+                    Object probObj = requestData.get("probability");
+                    if (probObj instanceof Number) {
+                        probability = ((Number) probObj).floatValue();
+                    } else {
+                        try {
+                            probability = Float.valueOf(probObj.toString());
+                        } catch (NumberFormatException e) {
+                            probability = null;
+                        }
+                    }
+                }
+
+                System.out.println("DiagnosisServlet /save: 接收到的数据 - userId=" + userId + 
+                                 ", resultDiseaseId=" + resultDiseaseId + 
+                                 ", probability=" + probability + 
+                                 ", selectedSymptoms=" + selectedSymptoms);
+
+                if (userId == null || selectedSymptoms == null || selectedSymptoms.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"缺少必要参数\"}");
+                    return;
+                }
+
+                // 将症状列表转换为JSON字符串
+                String selectedSymptomsJson = objectMapper.writeValueAsString(selectedSymptoms);
+
+                Consultation consultation = new Consultation();
+                consultation.setUserId(userId);
+                consultation.setSelectedSymptoms(selectedSymptomsJson);
+                consultation.setResultDiseaseId(resultDiseaseId);
+                consultation.setProbability(probability);
+                consultation.setCreatedAt(LocalDateTime.now());
+
+                System.out.println("DiagnosisServlet /save: 准备保存的Consultation对象 - " +
+                                 "userId=" + consultation.getUserId() + 
+                                 ", resultDiseaseId=" + consultation.getResultDiseaseId() + 
+                                 ", probability=" + consultation.getProbability());
+
+                Integer consultationId = consultationService.createConsultation(consultation);
+                
+                System.out.println("DiagnosisServlet /save: 保存结果 - consultationId=" + consultationId);
+                
+                Map<String, Object> result = new HashMap<>();
+                if (consultationId > 0) {
+                    result.put("success", true);
+                    result.put("consultationId", consultationId);
+                    result.put("message", "问诊记录保存成功");
+                } else {
+                    result.put("success", false);
+                    result.put("error", "保存问诊记录失败");
+                }
+                
+                out.print(objectMapper.writeValueAsString(result));
+                
+            } else if (pathInfo != null && pathInfo.equals("/explain")) {
+                // POST /api/diagnosis/explain - 获取疾病解释
+                @SuppressWarnings("unchecked")
+                Map<String, Object> requestData = objectMapper.readValue(sb.toString(),
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+
+                String diseaseName = requestData.get("disease") != null ? 
+                    requestData.get("disease").toString() : null;
+                Double probability = requestData.get("probability") != null ? 
+                    (requestData.get("probability") instanceof Double ? (Double) requestData.get("probability") : 
+                     Double.valueOf(requestData.get("probability").toString())) : 0.0;
+
+                if (diseaseName == null || diseaseName.isEmpty()) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"error\":\"disease参数不能为空\"}");
+                    return;
+                }
+
+                // 获取疾病解释
+                String explanation = explanationService.getDiseaseExplanation(diseaseName, probability);
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", true);
+                result.put("disease", diseaseName);
+                result.put("explanation", explanation);
+                
+                out.print(objectMapper.writeValueAsString(result));
+                
+            } else {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                out.print("{\"error\":\"Invalid path\"}");
+            }
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            out.print("{\"error\":\"服务器错误: " + e.getMessage() + "\"}");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 获取支持某个疾病的症状列表（证据）
+     * @param diseaseId 疾病ID
+     * @param selectedSymptoms 用户已选择的症状ID列表
+     * @param diseaseSymMap 疾病-症状关系映射
+     * @param symptomService 症状服务
+     * @return 支持该疾病的症状列表（包含症状ID和名称）
+     */
+    private List<Map<String, Object>> getEvidenceSymptoms(Integer diseaseId, 
+                                                          List<Integer> selectedSymptoms,
+                                                          Map<Integer, List<DiseaseSymptom>> diseaseSymMap,
+                                                          SymptomService symptomService) {
+        List<Map<String, Object>> evidenceList = new ArrayList<>();
+        
+        if (diseaseId == null || selectedSymptoms == null || selectedSymptoms.isEmpty()) {
+            // 参数为空是正常的（可能是诊断结果中没有疾病ID或没有选择症状）
+            // System.out.println("getEvidenceSymptoms: 参数为空 - diseaseId=" + diseaseId + ", selectedSymptoms=" + selectedSymptoms);
+            return evidenceList;
+        }
+        
+        List<DiseaseSymptom> diseaseSymptoms = diseaseSymMap.get(diseaseId);
+        if (diseaseSymptoms == null || diseaseSymptoms.isEmpty()) {
+            // 疾病症状列表为空是正常的（可能是数据问题或该疾病确实没有关联症状）
+            // 只在调试模式下输出，避免日志过多
+            // System.out.println("getEvidenceSymptoms: 疾病症状列表为空 - diseaseId=" + diseaseId);
+            return evidenceList;
+        }
+        
+        // 只在调试模式下输出详细信息
+        // System.out.println("getEvidenceSymptoms: 开始计算证据 - diseaseId=" + diseaseId + ", selectedSymptoms=" + selectedSymptoms + ", diseaseSymptoms数量=" + diseaseSymptoms.size());
+        
+        // 找出用户已选择的症状中，哪些支持该疾病
+        for (Integer symptomId : selectedSymptoms) {
+            for (DiseaseSymptom ds : diseaseSymptoms) {
+                if (ds.getSymptomId() != null && ds.getSymptomId().equals(symptomId)) {
+                    // 检查是否互斥，如果互斥则不作为证据
+                    if (ds.getIsExclusive() != null && ds.getIsExclusive()) {
+                        // 互斥症状不作为证据是正常的
+                        continue;
+                    }
+                    
+                    Symptom symptom = symptomService.getSymptomById(symptomId);
+                    if (symptom != null) {
+                        Map<String, Object> evidence = new HashMap<>();
+                        evidence.put("symptomId", symptomId);
+                        evidence.put("symptomName", symptom.getName());
+                        evidence.put("weight", ds.getWeight() != null ? ds.getWeight() : 0.5);
+                        evidence.put("isRequired", ds.getIsRequired() != null && ds.getIsRequired());
+                        evidenceList.add(evidence);
+                    }
+                    break;
+                }
+            }
+        }
+        return evidenceList;
+    }
+    
+    /**
+     * 根据疾病和概率生成诊疗建议
+     * @param diseaseName 疾病名称
+     * @param probability 概率
+     * @param diseaseId 疾病ID
+     * @param structuredAnswers 结构化问题的答案（用于计算严重程度），可为null
+     * @return 诊疗建议
+     */
+    private String generateRecommendation(String diseaseName, double probability, Integer diseaseId, 
+                                         List<Map<String, Object>> structuredAnswers) {
+        // 定义严重疾病列表（需要立即就医）
+        List<String> criticalDiseases = Arrays.asList(
+            "犬瘟热", "犬细小病毒肠炎", "狂犬病", "犬传染性肝炎", 
+            "急性中毒", "严重外伤", "呼吸困难", "休克"
+        );
+        
+        // 定义中等严重疾病列表（建议尽快就医）
+        List<String> moderateDiseases = Arrays.asList(
+            "犬冠状病毒肠炎", "犬传染性气管炎", "皮肤病", "耳部感染",
+            "消化系统疾病", "泌尿系统疾病"
+        );
+        
+        boolean isCritical = criticalDiseases.stream()
+            .anyMatch(name -> diseaseName != null && diseaseName.contains(name));
+        boolean isModerate = moderateDiseases.stream()
+            .anyMatch(name -> diseaseName != null && diseaseName.contains(name));
+        
+        // 计算严重程度（基于结构化问题的答案）
+        int severityLevel = calculateSeverityLevel(structuredAnswers);
+        
+        StringBuilder recommendation = new StringBuilder();
+        
+        // 根据严重程度调整建议
+        String severityText = "";
+        if (severityLevel >= 3) {
+            severityText = "根据症状严重程度分析，情况较为严重，";
+        } else if (severityLevel >= 2) {
+            severityText = "根据症状严重程度分析，情况中等，";
+        } else if (severityLevel >= 1) {
+            severityText = "根据症状严重程度分析，情况较轻，";
+        }
+        
+        if (probability >= 0.7) {
+            // 高概率
+            if (isCritical || severityLevel >= 3) {
+                recommendation.append("⚠️ 紧急情况！").append(severityText).append("建议立即就医。该疾病具有较高的严重性，且根据症状分析，患病可能性很高。请尽快带宠物前往最近的宠物医院进行专业诊断和治疗。");
+            } else if (isModerate || severityLevel >= 2) {
+                recommendation.append(severityText).append("建议尽快就医。根据症状分析，患病可能性较高，建议在24小时内带宠物前往宠物医院进行专业诊断。");
+            } else {
+                recommendation.append(severityText).append("建议就医检查。根据症状分析，患病可能性较高，建议带宠物前往宠物医院进行专业诊断，以确认病情并获得适当的治疗。");
+            }
+        } else if (probability >= 0.45) {
+            // 中等概率
+            if (isCritical || severityLevel >= 3) {
+                recommendation.append("⚠️ ").append(severityText).append("建议尽快就医。该疾病具有较高的严重性，虽然概率不是特别高，但为了宠物的健康，建议尽快带宠物前往宠物医院进行专业诊断。");
+            } else if (isModerate || severityLevel >= 2) {
+                recommendation.append(severityText).append("建议就医检查。根据症状分析，存在一定的患病可能性，建议带宠物前往宠物医院进行专业诊断，以排除或确认病情。");
+            } else {
+                recommendation.append(severityText).append("建议观察并就医检查。根据症状分析，存在一定的患病可能性，建议密切观察宠物状况，如有加重请及时就医。");
+            }
+        } else if (probability >= 0.2) {
+            // 低概率但值得关注
+            if (severityLevel >= 3) {
+                recommendation.append(severityText).append("虽然患病可能性较低，但症状较为严重，建议尽快就医检查。");
+            } else {
+                recommendation.append(severityText).append("建议观察。根据症状分析，患病可能性较低，但建议密切观察宠物状况。如果症状持续或加重，请及时就医。");
+            }
+        } else {
+            // 很低概率
+            if (severityLevel >= 3) {
+                recommendation.append(severityText).append("虽然患病可能性很低，但症状较为严重，建议就医检查以排除风险。");
+            } else {
+                recommendation.append(severityText).append("建议继续观察。根据症状分析，患病可能性很低，但建议继续观察宠物状况，如有异常请及时就医。");
+            }
+        }
+        
+        return recommendation.toString();
+    }
+    
+    /**
+     * 根据结构化问题的答案计算严重程度
+     * @param structuredAnswers 结构化问题的答案列表，每个答案包含dimension和answer
+     * @return 严重程度等级：0=未知，1=轻度，2=中度，3=重度
+     */
+    private int calculateSeverityLevel(List<Map<String, Object>> structuredAnswers) {
+        if (structuredAnswers == null || structuredAnswers.isEmpty()) {
+            return 0; // 未知
+        }
+        
+        int severityScore = 0;
+        boolean hasSeverity = false;
+        boolean hasDuration = false;
+        boolean hasRedFlag = false;
+        
+        for (Map<String, Object> answer : structuredAnswers) {
+            String dimension = (String) answer.get("dimension");
+            String answerText = answer.get("answer") != null ? answer.get("answer").toString() : "";
+            
+            if ("SEVERITY".equals(dimension)) {
+                hasSeverity = true;
+                // 严重程度：轻度=1，中度=2，重度=3，非常严重=4
+                if (answerText.contains("非常严重") || answerText.contains("无法正常活动")) {
+                    severityScore += 4;
+                } else if (answerText.contains("重度") || answerText.contains("严重影响")) {
+                    severityScore += 3;
+                } else if (answerText.contains("中度") || answerText.contains("影响部分")) {
+                    severityScore += 2;
+                } else if (answerText.contains("轻度") || answerText.contains("不影响")) {
+                    severityScore += 1;
+                }
+            } else if ("DURATION".equals(dimension)) {
+                hasDuration = true;
+                // 持续时间越长，严重程度越高
+                if (answerText.contains("超过3周") || answerText.contains("超过")) {
+                    severityScore += 2;
+                } else if (answerText.contains("1-3周")) {
+                    severityScore += 1;
+                }
+            } else if ("RED_FLAG".equals(dimension)) {
+                // 危险信号：每个危险信号+2分
+                if (answerText != null && !answerText.isEmpty()) {
+                    hasRedFlag = true;
+                    // 计算危险信号的数量（用逗号分隔）
+                    String[] flags = answerText.split(",");
+                    severityScore += flags.length * 2;
+                }
+            }
+        }
+        
+        // 如果没有严重程度信息，根据其他信息推断
+        if (!hasSeverity) {
+            if (hasRedFlag) {
+                severityScore += 3; // 有危险信号，至少是中度
+            } else if (hasDuration) {
+                // 持续时间长，可能是中度
+                severityScore += 1;
+            }
+        }
+        
+        // 归一化到0-3等级
+        if (severityScore >= 6) {
+            return 3; // 重度
+        } else if (severityScore >= 3) {
+            return 2; // 中度
+        } else if (severityScore >= 1) {
+            return 1; // 轻度
+        } else {
+            return 0; // 未知
+        }
+    }
+}
+

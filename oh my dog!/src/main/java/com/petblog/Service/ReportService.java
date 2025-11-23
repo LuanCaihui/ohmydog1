@@ -138,6 +138,18 @@ public class ReportService extends BaseService {
     }
 
     /**
+     * 获取所有举报信息（包含用户和博客详情）
+     */
+    public java.util.List<java.util.Map<String, Object>> getAllReportsWithDetails() {
+        try {
+            return ((com.petblog.dao.impl.ReportDAOImpl) reportDAO).findAllWithDetails();
+        } catch (Exception e) {
+            SQLExceptionHandler.handleSQLException(new SQLException(e), "查询所有举报信息（含详情）");
+            return null;
+        }
+    }
+
+    /**
      * 获取举报统计信息
      */
     public java.util.Map<String, Integer> getReportStats() {

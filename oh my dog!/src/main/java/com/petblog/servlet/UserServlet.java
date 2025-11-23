@@ -152,6 +152,9 @@ public class UserServlet extends HttpServlet {
                 // 调用登录验证
                 User user = userService.login(username, password);
                 if (user != null) {
+                    // 登录成功，设置session
+                    request.getSession().setAttribute("userId", user.getUserId());
+                    request.getSession().setAttribute("userName", user.getUserName());
                     // 登录成功
                     out.print(objectMapper.writeValueAsString(user));
                 } else {

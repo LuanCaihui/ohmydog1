@@ -113,6 +113,117 @@ public class RepostServlet extends HttpServlet {
         response.setContentType("application/json;charset=UTF-8");
         PrintWriter out = response.getWriter();
 
+        String pathInfo = request.getPathInfo();
+        
+        // 处理 /api/reposts/toggle 请求
+        if (pathInfo != null && pathInfo.equals("/toggle")) {
+            try {
+                // 读取请求体
+                StringBuilder sb = new StringBuilder();
+                BufferedReader reader = request.getReader();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+
+                // 解析请求体
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> requestData = objectMapper.readValue(sb.toString(), 
+                    objectMapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, Object.class));
+                
+                Integer blogId = requestData.get("blog_id") != null ? 
+                    Integer.valueOf(requestData.get("blog_id").toString()) : null;
+                Integer userId = requestData.get("userId") != null ? 
+                    Integer.valueOf(requestData.get("userId").toString()) : null;
+                
+                if (blogId == null || userId == null) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.print("{\"success\":false,\"error\":\"缺少必要参数: blog_id 或 userId\"}");
+                    return;
+                }
+
+                // 检查是否已转发
+                boolean hasReposted = repostService.hasUserReposted(userId, blogId);
+                
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                if (hasReposted) {
+                    // 已转发，不能重复转发
+                    result.put("success", false);
+                    result.put("reposted", true);
+                    result.put("message", "您已经转发过这篇博客");
+                } else {
+                    // 获取原博客信息
+                    com.petblog.Service.BlogService blogService = new com.petblog.Service.BlogService();
+                    com.petblog.model.Blog originalBlog = blogService.getBlogById(blogId);
+                    if (originalBlog == null) {
+                        result.put("success", false);
+                        result.put("reposted", false);
+                        result.put("message", "原博客不存在");
+                        out.print(objectMapper.writeValueAsString(result));
+                        return;
+                    }
+                    
+                    // 获取原博客作者信息
+                    com.petblog.Service.UserService userService = new com.petblog.Service.UserService();
+                    com.petblog.model.User originalAuthor = userService.getUserById(originalBlog.getUserId());
+                    String authorName = originalAuthor != null ? originalAuthor.getUserName() : "未知用户";
+                    
+                    // 创建转发博客
+                    com.petblog.model.Blog repostBlog = new com.petblog.model.Blog();
+                    repostBlog.setUserId(userId);
+                    repostBlog.setBlogTitle("转发了 @{authorName} 的博客".replace("{authorName}", authorName));
+                    repostBlog.setBlogContent("// 转发自 @{authorName}\n\n【{title}】\n\n{content}"
+                        .replace("{authorName}", authorName)
+                        .replace("{title}", originalBlog.getBlogTitle() != null ? originalBlog.getBlogTitle() : "")
+                        .replace("{content}", originalBlog.getBlogContent() != null ? originalBlog.getBlogContent() : ""));
+                    repostBlog.setBlogCreateTime(new java.util.Date());
+                    repostBlog.setBlogUpdateTime(new java.util.Date());
+                    repostBlog.setIsShielded(0);
+                    
+                    blogService.createBlog(repostBlog);
+                    Integer newBlogId = repostBlog.getBlogId();
+                    
+                    if (newBlogId != null && newBlogId > 0) {
+                        // 创建转发记录
+                        Repost repost = new Repost();
+                        repost.setUserId(userId);
+                        repost.setBlogId(blogId); // 原博客ID
+                        repost.setRepostId(newBlogId); // 新博客ID
+                        repost.setRepostsTime(LocalDateTime.now());
+                        Integer repostRecordId = repostService.createRepost(repost);
+                        
+                        // repostRecordId返回的是影响行数，大于0表示成功
+                        if (repostRecordId != null && repostRecordId > 0) {
+                            result.put("success", true);
+                            result.put("reposted", true);
+                            result.put("message", "转发成功");
+                            result.put("repostId", newBlogId);
+                        } else {
+                            // 即使转发记录创建失败，博客已创建，也算成功
+                            result.put("success", true);
+                            result.put("reposted", true);
+                            result.put("message", "转发成功（转发记录创建失败，但博客已创建）");
+                            result.put("repostId", newBlogId);
+                        }
+                    } else {
+                        result.put("success", false);
+                        result.put("reposted", false);
+                        result.put("message", "转发博客创建失败");
+                    }
+                }
+                
+                out.print(objectMapper.writeValueAsString(result));
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                java.util.Map<String, Object> errorResult = new java.util.HashMap<>();
+                errorResult.put("success", false);
+                errorResult.put("error", "切换转发状态失败: " + e.getMessage());
+                out.print(objectMapper.writeValueAsString(errorResult));
+                e.printStackTrace();
+            }
+            return;
+        }
+
         // 读取请求体
         StringBuilder sb = new StringBuilder();
         BufferedReader reader = request.getReader();

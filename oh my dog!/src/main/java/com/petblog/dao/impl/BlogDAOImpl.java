@@ -16,8 +16,12 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
     public void insert(Blog blog) {
         String sql = "INSERT INTO blogs (user_id, blog_title, blog_content, blog_update_time, blog_create_time, is_shielded) VALUES (?, ?, ?, ?, ?, ?)";
         try {
-            insert(sql, blog.getUserId(), blog.getBlogTitle(), blog.getBlogContent(),
+            int generatedId = insert(sql, blog.getUserId(), blog.getBlogTitle(), blog.getBlogContent(),
                   blog.getBlogUpdateTime(), blog.getBlogCreateTime(), blog.getIsShielded());
+            // 设置生成的ID到Blog对象
+            if (generatedId > 0) {
+                blog.setBlogId(generatedId);
+            }
         } catch (SQLException e) {
             throw SQLExceptionHandler.handleSQLException(e, "插入博客数据");
         }
@@ -46,9 +50,14 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
 
     @Override
     public Blog findById(int id) {
-        String sql = "SELECT blog_id, user_id, blog_title, blog_content, blog_update_time, blog_create_time, is_shielded FROM blogs WHERE blog_id = ?";
+        // JOIN用户表以获取用户信息，只返回未封禁的博客且用户未被封禁
+        String sql = "SELECT b.blog_id, b.user_id, b.blog_title, b.blog_content, b.blog_update_time, b.blog_create_time, b.is_shielded, " +
+                     "u.user_name, u.user_avatar_path " +
+                     "FROM blogs b " +
+                     "LEFT JOIN users u ON b.user_id = u.user_id " +
+                     "WHERE b.blog_id = ? AND b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0)";
         try {
-            return queryForObject(sql, this::mapRowToBlog, id);
+            return queryForObject(sql, this::mapRowToBlogWithUser, id);
         } catch (SQLException e) {
             return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "根据ID查询博客数据", null);
         }
@@ -64,6 +73,7 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
                      "COALESCE((SELECT COUNT(*) FROM reposts WHERE reposts.blog_Id = b.blog_id), 0) as repost_count " +
                      "FROM blogs b " +
                      "LEFT JOIN users u ON b.user_id = u.user_id " +
+                     "WHERE b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0) " +
                      "ORDER BY b.blog_create_time DESC";
         try {
             List<Blog> blogs = queryForList(sql, this::mapRowToBlogWithStats);
@@ -86,6 +96,7 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
                                  "u.user_name, u.user_avatar_path " +
                                  "FROM blogs b " +
                                  "LEFT JOIN users u ON b.user_id = u.user_id " +
+                                 "WHERE b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0) " +
                                  "ORDER BY b.blog_create_time DESC";
                 List<Blog> blogs = queryForList(basicSql, this::mapRowToBlogWithUser);
                 // 为每个博客设置默认统计值
@@ -108,7 +119,11 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
 
     @Override
     public List<Blog> findByAuthorId(int authorId) {
-        String sql = "SELECT blog_id, user_id, blog_title, blog_content, blog_update_time, blog_create_time, is_shielded FROM blogs WHERE user_id = ?";
+        // 只返回未封禁的博客，且用户未被封禁
+        String sql = "SELECT b.blog_id, b.user_id, b.blog_title, b.blog_content, b.blog_update_time, b.blog_create_time, b.is_shielded " +
+                     "FROM blogs b " +
+                     "LEFT JOIN users u ON b.user_id = u.user_id " +
+                     "WHERE b.user_id = ? AND b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0)";
         try {
             return queryForList(sql, this::mapRowToBlog, authorId);
         } catch (SQLException e) {
@@ -121,7 +136,8 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
         String sql = "SELECT b.blog_id, b.user_id, b.blog_title, b.blog_content, b.blog_update_time, b.blog_create_time, b.is_shielded " +
                      "FROM blogs b " +
                      "JOIN blogtopic bt ON b.blog_id = bt.blog_id " +
-                     "WHERE bt.topic_id = ?";
+                     "LEFT JOIN users u ON b.user_id = u.user_id " +
+                     "WHERE bt.topic_id = ? AND b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0)";
         try {
             return queryForList(sql, this::mapRowToBlog, topicId);
         } catch (SQLException e) {
@@ -131,7 +147,11 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
 
     @Override
     public List<Blog> findRecentBlogs(int limit) {
-        String sql = "SELECT blog_id, user_id, blog_title, blog_content, blog_update_time, blog_create_time, is_shielded FROM blogs ORDER BY blog_create_time DESC LIMIT ?";
+        String sql = "SELECT b.blog_id, b.user_id, b.blog_title, b.blog_content, b.blog_update_time, b.blog_create_time, b.is_shielded " +
+                     "FROM blogs b " +
+                     "LEFT JOIN users u ON b.user_id = u.user_id " +
+                     "WHERE b.is_shielded = 0 AND (u.is_ban IS NULL OR u.is_ban = 0) " +
+                     "ORDER BY b.blog_create_time DESC LIMIT ?";
         try {
             return queryForList(sql, this::mapRowToBlog, limit);
         } catch (SQLException e) {
@@ -212,6 +232,17 @@ public class BlogDAOImpl extends BaseJdbcDAO<Blog> implements BlogDAO {
         }
         
         return blog;
+    }
+
+    @Override
+    public int countAll() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM blogs";
+        try {
+            Number count = (Number) queryForSingleValue(sql);
+            return count != null ? count.intValue() : 0;
+        } catch (SQLException e) {
+            return SQLExceptionHandler.handleSQLExceptionWithDefault(e, "统计博客总数", 0);
+        }
     }
 }
 

@@ -645,7 +645,7 @@
         // 加载评论
         async function loadComments(blogId) {
             try {
-                const response = await fetch(`/api/comments/${blogId}`);
+                const response = await fetch(`/petblog/api/comments/${blogId}`);
                 const comments = await response.json();
 
                 const commentsList = document.getElementById('comments-list');
@@ -716,12 +716,19 @@
             button.textContent = '发表中...';
 
             try {
-                const response = await fetch('/api/comments/add', {
+                const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+                if (!currentUser || !currentUser.userId) {
+                    alert('请先登录');
+                    return;
+                }
+
+                const response = await fetch('/petblog/api/comments/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         blog_id: blogId,
                         comment_content: content,
+                        user_id: currentUser.userId,
                         parent_comment_id: textarea.dataset.parentId || null
                     })
                 });
