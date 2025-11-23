@@ -260,15 +260,19 @@ public class StructuredQuestionService {
     }
     
     /**
-     * 根据用户对上一个问题的回答，生成下一个追问
+     * 根据用户对上一个问题的回答，生成下一个追问（支持智能跳过）
      * @param parentSymptomId 父症状ID（主诉）
      * @param answeredDimension 已回答的问题维度
      * @param selectedSymptoms 已选择的症状列表
+     * @param diseaseProbs 当前疾病概率分布（用于判断维度重要性，可为null）
+     * @param diseaseSymMap 疾病-症状关系映射（用于判断维度重要性，可为null）
      * @return 下一个追问，如果没有则返回null
      */
     public SymptomQuestion getNextFollowUpQuestion(Integer parentSymptomId, 
                                                    SymptomQuestion.QuestionDimension answeredDimension,
-                                                   List<Integer> selectedSymptoms) throws SQLException {
+                                                   List<Integer> selectedSymptoms,
+                                                   Map<Integer, Double> diseaseProbs,
+                                                   Map<Integer, List<DiseaseSymptom>> diseaseSymMap) throws SQLException {
         if (parentSymptomId == null) {
             return null;
         }
@@ -296,32 +300,110 @@ public class StructuredQuestionService {
             return null; // 所有问题都已问完
         }
         
-        // 获取下一个维度的追问
-        SymptomQuestion.QuestionDimension nextDimension = priority.get(answeredIndex + 1);
-        
-        List<SymptomQuestion> questions = new ArrayList<>();
-        switch (nextDimension) {
-            case TYPE:
-                questions = generateTypeQuestions(parentSymptomId, mainComplaintName);
-                break;
-            case DURATION:
-                questions = generateDurationQuestions(parentSymptomId, mainComplaintName);
-                break;
-            case SEVERITY:
-                questions = generateSeverityQuestions(parentSymptomId, mainComplaintName);
-                break;
-            case TRIGGER:
-                questions = generateTriggerQuestions(parentSymptomId, mainComplaintName);
-                break;
-            case ACCOMPANYING:
-                questions = generateAccompanyingQuestions(parentSymptomId, mainComplaintName, selectedSymptoms);
-                break;
-            case RED_FLAG:
-                questions = generateRedFlagQuestions(parentSymptomId, mainComplaintName);
-                break;
+        // 智能跳过：从当前维度开始，找到下一个重要的维度
+        for (int i = answeredIndex + 1; i < priority.size(); i++) {
+            SymptomQuestion.QuestionDimension candidateDimension = priority.get(i);
+            
+            // 判断该维度是否重要（如果提供了疾病概率信息）
+            if (diseaseProbs != null && diseaseSymMap != null) {
+                if (!isDimensionImportant(candidateDimension, parentSymptomId, diseaseProbs, diseaseSymMap)) {
+                    continue; // 跳过不重要的维度
+                }
+            }
+            
+            // 生成该维度的问题
+            List<SymptomQuestion> questions = new ArrayList<>();
+            switch (candidateDimension) {
+                case TYPE:
+                    questions = generateTypeQuestions(parentSymptomId, mainComplaintName);
+                    break;
+                case DURATION:
+                    questions = generateDurationQuestions(parentSymptomId, mainComplaintName);
+                    break;
+                case SEVERITY:
+                    questions = generateSeverityQuestions(parentSymptomId, mainComplaintName);
+                    break;
+                case TRIGGER:
+                    questions = generateTriggerQuestions(parentSymptomId, mainComplaintName);
+                    break;
+                case ACCOMPANYING:
+                    questions = generateAccompanyingQuestions(parentSymptomId, mainComplaintName, selectedSymptoms);
+                    break;
+                case RED_FLAG:
+                    questions = generateRedFlagQuestions(parentSymptomId, mainComplaintName);
+                    break;
+            }
+            
+            if (!questions.isEmpty()) {
+                return questions.get(0);
+            }
         }
         
-        return questions.isEmpty() ? null : questions.get(0);
+        return null; // 所有维度都已尝试，没有可用的问题
+    }
+    
+    /**
+     * 向后兼容的重载方法
+     */
+    public SymptomQuestion getNextFollowUpQuestion(Integer parentSymptomId, 
+                                                   SymptomQuestion.QuestionDimension answeredDimension,
+                                                   List<Integer> selectedSymptoms) throws SQLException {
+        return getNextFollowUpQuestion(parentSymptomId, answeredDimension, selectedSymptoms, null, null);
+    }
+    
+    /**
+     * 判断某个维度对当前诊断是否重要
+     * @param dimension 问题维度
+     * @param mainComplaintId 主诉ID
+     * @param diseaseProbs 疾病概率分布
+     * @param diseaseSymMap 疾病-症状关系映射
+     * @return true表示重要，false表示可以跳过
+     */
+    private boolean isDimensionImportant(SymptomQuestion.QuestionDimension dimension,
+                                        Integer mainComplaintId,
+                                        Map<Integer, Double> diseaseProbs,
+                                        Map<Integer, List<DiseaseSymptom>> diseaseSymMap) {
+        // 危险信号和伴随症状总是重要的
+        if (dimension == SymptomQuestion.QuestionDimension.RED_FLAG || 
+            dimension == SymptomQuestion.QuestionDimension.ACCOMPANYING) {
+            return true;
+        }
+        
+        // 如果疾病概率分布不明确（熵高），所有维度都重要
+        double entropy = calculateEntropy(diseaseProbs);
+        if (entropy > 2.0) { // 高熵，概率分布不明确
+            return true;
+        }
+        
+        // 如果某个疾病的概率已经很高（>40%），可以跳过一些细节维度
+        double maxProb = diseaseProbs.values().stream()
+            .mapToDouble(Double::doubleValue)
+            .max()
+            .orElse(0.0);
+        
+        if (maxProb > 0.4) {
+            // 概率已经比较明确，可以跳过一些不太重要的维度
+            // TRIGGER（诱因）和SEVERITY（严重程度）在某些情况下可以跳过
+            if (dimension == SymptomQuestion.QuestionDimension.TRIGGER || 
+                dimension == SymptomQuestion.QuestionDimension.SEVERITY) {
+                return false; // 可以跳过
+            }
+        }
+        
+        return true; // 默认都重要
+    }
+    
+    /**
+     * 计算熵（用于判断概率分布的确定性）
+     */
+    private double calculateEntropy(Map<Integer, Double> probs) {
+        double entropy = 0.0;
+        for (Double prob : probs.values()) {
+            if (prob > 0) {
+                entropy -= prob * Math.log(prob) / Math.log(2);
+            }
+        }
+        return entropy;
     }
 }
 
