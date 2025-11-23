@@ -50,5 +50,29 @@ public interface SymptomDAO {
      * @return 受影响的行数
      */
     int delete(Integer id) throws SQLException;
+    
+    /**
+     * 关键方法：获取 Top N 疾病相关联的所有症状，并排除已问过的
+     * 用于智能问题选择：根据当前概率最高的疾病来动态生成问题
+     * 
+     * @param topDiseaseIds 概率最高的几个疾病ID列表
+     * @param askedSymptomIds 已经问过的症状ID列表
+     * @return 候选症状列表（包含症状信息和权重），按权重降序排列
+     */
+    List<com.petblog.model.SymptomWithWeight> findCandidateSymptoms(
+            List<Integer> topDiseaseIds, 
+            List<Integer> askedSymptomIds
+    ) throws SQLException;
+    
+    /**
+     * 按类别查找症状，排除已问过的症状
+     * 用于回退机制：当疾病关联的症状不足时，从同类别症状中补充
+     * 
+     * @param category 症状类别
+     * @param askedSymptomIds 已经问过的症状ID列表
+     * @param limit 最多返回的症状数量
+     * @return 症状列表
+     */
+    List<Symptom> findByCategory(String category, List<Integer> askedSymptomIds, int limit) throws SQLException;
 }
 

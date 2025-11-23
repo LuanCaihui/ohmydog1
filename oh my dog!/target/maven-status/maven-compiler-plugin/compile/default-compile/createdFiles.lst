@@ -1,3 +1,4 @@
+com\petblog\Service\DiagnosisService$1SymptomScore.class
 com\petblog\Service\FileService.class
 com\petblog\dao\PetChallengeDAO.class
 com\petblog\Service\BaseService.class
@@ -59,6 +60,7 @@ com\petblog\model\Message.class
 com\petblog\Service\MedicineService.class
 com\petblog\dao\impl\BlogColumnDAOImpl.class
 com\petblog\dao\MedicineDAO.class
+com\petblog\model\DiseaseResult.class
 com\petblog\dao\BlogChallengeDAO.class
 com\petblog\Service\BlogTopicService.class
 com\petblog\servlet\MessageServlet.class
@@ -70,6 +72,7 @@ com\petblog\Service\SymptomService.class
 com\petblog\model\Vote$VotePK.class
 com\petblog\model\Vote.class
 com\petblog\Service\UserService.class
+com\petblog\Service\DiagnosisService.class
 com\petblog\dao\impl\VoteDAOImpl.class
 com\petblog\Service\TopicService.class
 com\petblog\Service\LikeService.class
@@ -79,6 +82,7 @@ com\petblog\model\Follow.class
 com\petblog\dao\LikeDAO.class
 com\petblog\dao\impl\AuthenticationDAOImpl.class
 com\petblog\model\Auditor.class
+com\petblog\model\DiagnosisSession.class
 com\petblog\model\Favorite.class
 com\petblog\dao\impl\ReplyDAOImpl.class
 com\petblog\dao\FollowDAO.class
@@ -90,6 +94,7 @@ com\petblog\dao\BaseJdbcDAO.class
 com\petblog\dao\impl\AuditorDAOImpl.class
 com\petblog\servlet\ColumnServlet.class
 com\petblog\dao\AuthenticationDAO.class
+com\petblog\model\SymptomWithWeight.class
 com\petblog\dao\impl\BlogPetDAOImpl.class
 com\petblog\model\File.class
 com\petblog\servlet\BlogTopicServlet.class

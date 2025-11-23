@@ -1,3 +1,4 @@
+C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\DiagnosisSession.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\BlogColumnDAO.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\InformDAO.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\BlogChallengeService.java
@@ -24,6 +25,7 @@ C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\Fi
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\PetDAO.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\Follow.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\BaseService.java
+C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\DiagnosisService.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\FileDAO.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\LikeDAO.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\BlogPet.java
@@ -50,6 +52,7 @@ C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\servlet\
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\FollowService.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\impl\BlogPetDAOImpl.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\impl\PetDAOImpl.java
+C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\DiseaseResult.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\servlet\FileServlet.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\SymptomService.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\servlet\NotificationServlet.java
@@ -162,4 +165,5 @@ C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\servlet\
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\impl\VoteDAOImpl.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\dao\impl\BlogTopicDAOImpl.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\Service\RepostService.java
+C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\model\SymptomWithWeight.java
 C:\Users\刘雪婷\Desktop\ohmydog\oh my dog!\src\main\java\com\petblog\util\JdbcUtil.java

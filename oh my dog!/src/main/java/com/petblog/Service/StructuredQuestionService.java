@@ -20,34 +20,83 @@ public class StructuredQuestionService {
     private final SymptomDAO symptomDAO = new SymptomDAOImpl();
     private final DiseaseSymptomDAO diseaseSymptomDAO = new DiseaseSymptomDAOImpl();
     
-    // 常见主诉症状（可以从数据库或配置中读取）
-    private static final List<String> MAIN_COMPLAINTS = Arrays.asList(
-        "咳嗽", "呕吐", "腹泻", "食欲不振", "发热", "呼吸困难", 
-        "皮肤瘙痒", "跛行", "抽搐", "流鼻涕", "眼部分泌物", "耳部异味"
-    );
+    // 主诉类别映射：类别名称 -> 代表性症状名称（用于选择该类别下的第一个症状作为主诉）
+    private static final Map<String, String> CATEGORY_REPRESENTATIVE_SYMPTOMS = new HashMap<>();
+    static {
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("呼吸系统", "咳嗽");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("消化系统", "呕吐");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("皮肤", "皮肤瘙痒");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("全身", "发热");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("眼部", "眼睛红肿");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("口腔", "恶臭口气");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("泌尿系统", "频繁排尿");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("神经系统", "抽搐");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("骨骼肌肉系统", "跛行");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("耳部", "频繁抓挠耳朵");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("循环系统", "心跳加快");
+        CATEGORY_REPRESENTATIVE_SYMPTOMS.put("行为", "焦虑");
+    }
+    
+    // 主诉显示名称映射：用于在界面上显示更友好的名称
+    private static final Map<String, String> CATEGORY_DISPLAY_NAMES = new HashMap<>();
+    static {
+        CATEGORY_DISPLAY_NAMES.put("全身", "发热");
+        // 其他类别保持原样
+    }
     
     /**
-     * 获取主诉问题列表
+     * 获取主诉问题列表（按症状类别分组）
      */
     public List<SymptomQuestion> getMainComplaintQuestions() throws SQLException {
         List<SymptomQuestion> questions = new ArrayList<>();
         List<Symptom> allSymptoms = symptomDAO.findAll();
         
-        // 从所有症状中筛选出主诉症状
+        // 按类别分组症状
+        Map<String, List<Symptom>> categoryMap = new HashMap<>();
         for (Symptom symptom : allSymptoms) {
-            if (MAIN_COMPLAINTS.contains(symptom.getName())) {
-                SymptomQuestion question = new SymptomQuestion();
-                question.setSymptomId(symptom.getId());
-                question.setSymptomName(symptom.getName());
-                question.setQuestionType(SymptomQuestion.QuestionType.MAIN_COMPLAINT);
-                question.setQuestionText("您的宠物是否有" + symptom.getName() + "的症状？");
-                question.setOptions(null);
-                question.setIsMultiple(false);
-                question.setParentSymptomId(null);
-                question.setDimension(null);
-                questions.add(question);
+            if (symptom.getCategory() != null && !symptom.getCategory().isEmpty()) {
+                categoryMap.computeIfAbsent(symptom.getCategory(), k -> new ArrayList<>()).add(symptom);
             }
         }
+        
+        // 为每个类别创建一个主诉问题
+        for (Map.Entry<String, List<Symptom>> entry : categoryMap.entrySet()) {
+            String category = entry.getKey();
+            List<Symptom> symptoms = entry.getValue();
+            
+            if (symptoms.isEmpty()) {
+                continue;
+            }
+            
+            // 选择该类别下的代表性症状，如果没有配置，则选择第一个症状
+            Symptom representativeSymptom = null;
+            String representativeName = CATEGORY_REPRESENTATIVE_SYMPTOMS.get(category);
+            if (representativeName != null) {
+                representativeSymptom = symptoms.stream()
+                    .filter(s -> s.getName().equals(representativeName))
+                    .findFirst()
+                    .orElse(symptoms.get(0));
+            } else {
+                representativeSymptom = symptoms.get(0);
+            }
+            
+            SymptomQuestion question = new SymptomQuestion();
+            question.setSymptomId(representativeSymptom.getId());
+            question.setSymptomName(category); // 使用类别名称作为显示名称
+            
+            // 使用显示名称映射，如果"全身"则显示为"发热"
+            String displayName = CATEGORY_DISPLAY_NAMES.getOrDefault(category, category);
+            question.setQuestionType(SymptomQuestion.QuestionType.MAIN_COMPLAINT);
+            question.setQuestionText("您的宠物是否有" + displayName + "相关的症状？");
+            question.setOptions(null);
+            question.setIsMultiple(false);
+            question.setParentSymptomId(null);
+            question.setDimension(null);
+            questions.add(question);
+        }
+        
+        // 按类别名称排序，确保显示顺序一致
+        questions.sort(Comparator.comparing(SymptomQuestion::getSymptomName));
         
         return questions;
     }
@@ -188,41 +237,71 @@ public class StructuredQuestionService {
     private List<SymptomQuestion> generateAccompanyingQuestions(Integer parentId, String mainComplaint, List<Integer> selectedSymptoms) throws SQLException {
         List<SymptomQuestion> questions = new ArrayList<>();
         
-        // 根据主诉推荐常见的伴随症状
+        // 获取主诉的类别
+        Symptom mainSymptom = symptomDAO.findById(parentId);
+        String mainComplaintCategory = null;
+        if (mainSymptom != null && mainSymptom.getCategory() != null) {
+            mainComplaintCategory = mainSymptom.getCategory();
+            System.out.println("结构化问题：主诉ID=" + parentId + ", 主诉名称=" + mainComplaint + ", 主诉类别=" + mainComplaintCategory);
+        }
+        
+        // 根据主诉推荐常见的伴随症状（只推荐同类别症状）
         Map<String, List<String>> accompanyingMap = new HashMap<>();
-        accompanyingMap.put("咳嗽", Arrays.asList("发热", "流鼻涕", "呼吸困难", "食欲不振"));
+        accompanyingMap.put("咳嗽", Arrays.asList("发热", "流鼻涕", "呼吸困难", "打喷嚏"));
         accompanyingMap.put("呕吐", Arrays.asList("腹泻", "食欲不振", "发热", "腹痛"));
         accompanyingMap.put("腹泻", Arrays.asList("呕吐", "食欲不振", "发热", "脱水"));
         accompanyingMap.put("发热", Arrays.asList("咳嗽", "流鼻涕", "食欲不振", "精神不振"));
         accompanyingMap.put("呼吸困难", Arrays.asList("咳嗽", "流鼻涕", "发热", "精神不振"));
+        accompanyingMap.put("皮肤瘙痒", Arrays.asList("皮疹", "皮肤红肿", "脱毛", "皮肤脱屑"));
         
         List<String> accompanyingSymptoms = accompanyingMap.get(mainComplaint);
+        
+        // 如果主诉有明确的类别，只推荐同类别症状
+        List<Symptom> allSymptoms = symptomDAO.findAll();
+        List<String> availableSymptoms = new ArrayList<>();
+        
         if (accompanyingSymptoms != null && !accompanyingSymptoms.isEmpty()) {
-            // 查找这些伴随症状的ID
-            List<Symptom> allSymptoms = symptomDAO.findAll();
-            List<String> availableSymptoms = new ArrayList<>();
-            
+            // 查找这些伴随症状的ID，并过滤同类别
             for (String symptomName : accompanyingSymptoms) {
                 for (Symptom symptom : allSymptoms) {
                     if (symptom.getName().equals(symptomName) && !selectedSymptoms.contains(symptom.getId())) {
-                        availableSymptoms.add(symptomName);
+                        // 如果主诉有类别，只添加同类别的症状
+                        if (mainComplaintCategory == null || mainComplaintCategory.equals(symptom.getCategory())) {
+                            availableSymptoms.add(symptomName);
+                        }
                         break;
                     }
                 }
             }
-            
-            if (!availableSymptoms.isEmpty()) {
-                SymptomQuestion question = new SymptomQuestion();
-                question.setSymptomId(parentId);
-                question.setSymptomName("伴随症状");
-                question.setQuestionType(SymptomQuestion.QuestionType.FOLLOW_UP);
-                question.setQuestionText("除了" + mainComplaint + "，是否还有以下症状？");
-                question.setOptions(availableSymptoms);
-                question.setIsMultiple(true); // 伴随症状可以多选
-                question.setParentSymptomId(parentId);
-                question.setDimension(SymptomQuestion.QuestionDimension.ACCOMPANYING);
-                questions.add(question);
+        } else if (mainComplaintCategory != null) {
+            // 如果主诉不在映射表中，但主诉有类别，推荐同类别的其他常见症状
+            for (Symptom symptom : allSymptoms) {
+                if (mainComplaintCategory.equals(symptom.getCategory()) 
+                    && !symptom.getId().equals(parentId) 
+                    && !selectedSymptoms.contains(symptom.getId())) {
+                    // 只添加前5个同类别症状，避免选项过多
+                    if (availableSymptoms.size() < 5) {
+                        availableSymptoms.add(symptom.getName());
+                    }
+                }
             }
+        }
+        
+        if (!availableSymptoms.isEmpty()) {
+            // 为多选题添加"无"选项
+            List<String> optionsWithNone = new ArrayList<>(availableSymptoms);
+            optionsWithNone.add("无");
+            
+            SymptomQuestion question = new SymptomQuestion();
+            question.setSymptomId(parentId);
+            question.setSymptomName("伴随症状");
+            question.setQuestionType(SymptomQuestion.QuestionType.FOLLOW_UP);
+            question.setQuestionText("除了" + mainComplaint + "，是否还有以下症状？");
+            question.setOptions(optionsWithNone);
+            question.setIsMultiple(true); // 伴随症状可以多选
+            question.setParentSymptomId(parentId);
+            question.setDimension(SymptomQuestion.QuestionDimension.ACCOMPANYING);
+            questions.add(question);
         }
         
         return questions;

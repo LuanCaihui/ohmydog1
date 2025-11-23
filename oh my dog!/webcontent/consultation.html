@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智能问诊 - Oh my dog！</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- jQuery (必须在自定义脚本之前加载) -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Bootstrap JS Bundle (包含 Popper.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <style>
         :root {
             --primary-color: #3d8b7e;
@@ -672,18 +682,16 @@
                             <!-- 结构化选项将在这里动态生成 -->
                         </div>
                         
-                        <!-- 传统是/否按钮（用于非结构化问题） -->
+                        <!-- 传统是/否/不确定按钮（用于非结构化问题） -->
                         <div class="answer-buttons" id="yesNoButtons">
                             <button class="answer-btn" id="yesBtn" onclick="answerQuestion(true)">是</button>
                             <button class="answer-btn" id="noBtn" onclick="answerQuestion(false)">否</button>
+                            <button class="answer-btn" id="uncertainBtn" onclick="answerQuestion(null)" style="background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);">不确定</button>
                         </div>
 
                         <div class="action-buttons">
                             <button class="btn btn-secondary" id="backBtn" onclick="goBack()" style="display: none;">返回</button>
                             <button class="btn btn-secondary" id="skipBtn" onclick="skipQuestion()" style="display: none;">跳过</button>
-                            <div style="color: #666; font-size: 14px; margin-top: 10px; text-align: center;">
-                                已回答: <span id="questionCountDisplay" style="font-weight: bold; color: var(--primary-color);">0</span> / 至少5个问题（当某个病症概率≥45%时自动结束）
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -722,15 +730,25 @@
     </div>
 
     <script>
+        // 检查 jQuery 是否已加载
+        if (typeof jQuery === 'undefined') {
+            console.error('jQuery 未加载！请检查网络连接或 CDN 是否可用。');
+            // 如果 jQuery 未加载，尝试从备用 CDN 加载
+            document.write('<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"><\/script>');
+        } else {
+            console.log('jQuery 版本:', jQuery.fn.jquery);
+        }
+        
         // 测试：确认 JavaScript 是否正常执行
         console.log('=== consultation.html 脚本已加载 ===');
         console.log('当前时间:', new Date().toLocaleString());
         
         let currentSymptomId = null;
         let selectedSymptoms = []; // 只包含选择"是"的症状
-        let askedSymptoms = []; // 包含所有已问过的症状（无论选择是或否）
+        let askedSymptoms = []; // 包含所有已问过的症状（无论选择是、否或不确定）
+        let uncertainSymptoms = []; // 包含回答"不确定"的症状ID列表
         let currentStep = 1;
-        let questionCount = 0; // 记录已回答的问题数量（包括选择"是"和"否"的）
+        let questionCount = 0; // 记录已回答的问题数量（包括选择"是"、"否"和"不确定"的）
         let isSaved = false; // 记录是否已保存
         let questionHistory = []; // 问题历史记录，用于返回上一个问题 [{symptomId, name, description, answer}]
         let mainComplaintId = null; // 主诉ID
@@ -744,57 +762,53 @@
             window.location.href = '/petblog/login.html';
         }
 
-        // 页面加载时初始化
-        window.addEventListener('DOMContentLoaded', function() {
+        // 页面加载时初始化（使用jQuery）
+        $(document).ready(function() {
             // 每次打开页面都显示服务条款（不检查localStorage，确保用户每次都能看到）
             showTermsPage();
             
-            // 监听服务条款复选框变化
-            const termsCheckbox = document.getElementById('termsAccepted');
-            const startBtn = document.getElementById('startBtn');
-            
-            if (termsCheckbox && startBtn) {
-                termsCheckbox.addEventListener('change', function() {
-                    if (this.checked) {
-                        // 勾选后，按钮变绿色并启用
-                        startBtn.disabled = false;
-                        startBtn.style.background = 'var(--primary-color)';
-                        startBtn.style.cursor = 'pointer';
-                    } else {
-                        // 取消勾选，按钮变灰色并禁用
-                        startBtn.disabled = true;
-                        startBtn.style.background = '#ccc';
-                        startBtn.style.cursor = 'not-allowed';
-                    }
-                });
-            }
+            // 监听服务条款复选框变化（使用jQuery）
+            $('#termsAccepted').on('change', function() {
+                const $startBtn = $('#startBtn');
+                if ($(this).is(':checked')) {
+                    // 勾选后，按钮变绿色并启用
+                    $startBtn.prop('disabled', false)
+                        .css({
+                            'background': 'var(--primary-color)',
+                            'cursor': 'pointer'
+                        });
+                } else {
+                    // 取消勾选，按钮变灰色并禁用
+                    $startBtn.prop('disabled', true)
+                        .css({
+                            'background': '#ccc',
+                            'cursor': 'not-allowed'
+                        });
+                }
+            });
         });
 
-        // 显示服务条款页面
+        // 显示服务条款页面（使用jQuery）
         function showTermsPage() {
-            document.getElementById('termsArea').classList.remove('hidden');
-            document.getElementById('questionArea').classList.add('hidden');
-            document.getElementById('resultArea').classList.add('hidden');
+            $('#termsArea').removeClass('hidden');
+            $('#questionCard').addClass('hidden');
+            $('#resultCard').addClass('hidden');
             
             // 更新步骤指示器到第1步（服务条款）
             updateStepIndicator(1);
             
-            // 重置复选框和按钮状态
-            const termsCheckbox = document.getElementById('termsAccepted');
-            const startBtn = document.getElementById('startBtn');
-            if (termsCheckbox) {
-                termsCheckbox.checked = false;
-            }
-            if (startBtn) {
-                startBtn.disabled = true;
-                startBtn.style.background = '#ccc';
-                startBtn.style.cursor = 'not-allowed';
-            }
+            // 重置复选框和按钮状态（使用jQuery）
+            $('#termsAccepted').prop('checked', false);
+            $('#startBtn').prop('disabled', true)
+                .css({
+                    'background': '#ccc',
+                    'cursor': 'not-allowed'
+                });
         }
         
-        // 接受服务条款
+        // 接受服务条款（使用jQuery）
         function acceptTerms() {
-            const termsAccepted = document.getElementById('termsAccepted').checked;
+            const termsAccepted = $('#termsAccepted').is(':checked');
             
             if (!termsAccepted) {
                 alert('请先阅读并同意服务条款');
@@ -803,19 +817,23 @@
             
             // 不保存到localStorage，每次打开都显示服务条款
             
-            // 隐藏服务条款，显示答题卡片
-            document.getElementById('termsArea').classList.add('hidden');
-            document.getElementById('questionCard').classList.remove('hidden');
+            // 隐藏服务条款，显示答题卡片（使用jQuery）
+            $('#termsArea').addClass('hidden');
+            $('#questionCard').removeClass('hidden');
             updateStepIndicator(2); // 问诊是第2步
             startConsultation();
         }
 
-        // 开始问诊 - 显示主诉选择
+        // 开始问诊 - 显示主诉选择（使用jQuery）
         async function startConsultation() {
             try {
                 showLoading(true);
-                const response = await fetch('/petblog/api/diagnosis/start');
-                const data = await response.json();
+                const response = await $.ajax({
+                    url: '/petblog/api/diagnosis/start',
+                    method: 'GET',
+                    dataType: 'json'
+                });
+                const data = response;
                 
                 if (data.error) {
                     showError(data.error);
@@ -823,9 +841,9 @@
                 }
 
                 // 显示主诉选择区域
-                document.getElementById('mainComplaintArea').classList.remove('hidden');
-                document.getElementById('questionArea').classList.add('hidden');
-                document.getElementById('questionCard').classList.remove('hidden');
+                $('#mainComplaintArea').removeClass('hidden');
+                $('#questionArea').addClass('hidden');
+                $('#questionCard').removeClass('hidden');
                 
                 // 渲染主诉选项
                 renderMainComplaints(data.questions || []);
@@ -838,20 +856,20 @@
             }
         }
         
-        // 渲染主诉选项
+        // 渲染主诉选项（使用jQuery）
         function renderMainComplaints(questions) {
-            const container = document.getElementById('mainComplaintOptions');
-            container.innerHTML = '';
+            const $container = $('#mainComplaintOptions');
+            $container.empty();
             
             questions.forEach(question => {
-                const option = document.createElement('div');
-                option.className = 'structured-option';
-                option.onclick = () => selectMainComplaint(question.symptomId, question.symptomName);
-                option.innerHTML = `
-                    <span>${question.questionText}</span>
-                    <span style="font-size: 1.2em;">→</span>
-                `;
-                container.appendChild(option);
+                const $option = $('<div>')
+                    .addClass('structured-option')
+                    .html(`
+                        <span>${question.questionText}</span>
+                        <span style="font-size: 1.2em;">→</span>
+                    `)
+                    .on('click', () => selectMainComplaint(question.symptomId, question.symptomName));
+                $container.append($option);
             });
         }
         
@@ -863,30 +881,28 @@
             questionCount++;
             
             // 隐藏主诉选择区域，显示问诊区域
-            document.getElementById('mainComplaintArea').classList.add('hidden');
-            document.getElementById('questionArea').classList.remove('hidden');
-            document.getElementById('questionCard').classList.remove('hidden');
+            $('#mainComplaintArea').addClass('hidden');
+            $('#questionArea').removeClass('hidden');
+            $('#questionCard').removeClass('hidden');
             
-            // 获取相关追问
-            await getFollowUpQuestions(symptomId);
+            // 直接进入决策树问诊流程，跳过结构化问询
+            await getNextQuestion();
         }
         
         // 获取相关追问
         async function getFollowUpQuestions(mainComplaintId) {
             try {
                 showLoading(true);
-                const response = await fetch('/petblog/api/diagnosis/followup', {
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/followup',
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         mainComplaintId: mainComplaintId,
                         selectedSymptoms: selectedSymptoms
-                    })
+                    }),
+                    dataType: 'json'
                 });
-                
-                const data = await response.json();
                 
                 if (data.error) {
                     showError(data.error);
@@ -913,75 +929,82 @@
             currentQuestion = question;
             currentSymptomId = question.symptomId;
             
-            // 隐藏是/否按钮，显示结构化选项
-            document.getElementById('yesNoButtons').classList.add('hidden');
-            document.getElementById('structuredOptions').classList.remove('hidden');
-            document.getElementById('skipBtn').style.display = 'none';
+            // 确保问题卡片和问题区域可见
+            $('#questionCard').removeClass('hidden');
+            $('#questionArea').removeClass('hidden');
+            $('#mainComplaintArea').addClass('hidden');
             
-            // 设置问题文本
-            document.getElementById('questionTitle').textContent = question.questionText;
-            document.getElementById('questionDescription').textContent = '';
+            // 隐藏是/否按钮，显示结构化选项（使用jQuery）
+            $('#yesNoButtons').addClass('hidden');
+            $('#structuredOptions').removeClass('hidden');
+            $('#skipBtn').hide();
             
-            // 渲染选项
-            const container = document.getElementById('structuredOptions');
-            container.innerHTML = '';
+            // 设置问题文本（使用jQuery）
+            $('#questionTitle').text(question.questionText);
+            $('#questionDescription').text('');
+            
+            // 渲染选项（使用jQuery）
+            const $container = $('#structuredOptions');
+            $container.empty();
             
             if (question.options && question.options.length > 0) {
                 question.options.forEach((option, index) => {
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'structured-option';
-                    optionDiv.onclick = () => selectStructuredOption(optionDiv, option, index);
-                    
                     const inputType = question.isMultiple ? 'checkbox' : 'radio';
                     const inputName = `option_${question.symptomId}`;
+                    const inputId = `opt_${question.symptomId}_${index}`;
                     
-                    optionDiv.innerHTML = `
-                        <input type="${inputType}" name="${inputName}" value="${index}" id="opt_${question.symptomId}_${index}">
-                        <label for="opt_${question.symptomId}_${index}" style="flex: 1; cursor: pointer; margin-left: 10px;">${option}</label>
-                    `;
-                    container.appendChild(optionDiv);
+                    const $optionDiv = $('<div>')
+                        .addClass('structured-option')
+                        .html(`
+                            <input type="${inputType}" name="${inputName}" value="${index}" id="${inputId}">
+                            <label for="${inputId}" style="flex: 1; cursor: pointer; margin-left: 10px;">${option}</label>
+                        `)
+                        .on('click', function() {
+                            selectStructuredOption(this, option, index);
+                        });
+                    $container.append($optionDiv);
                 });
                 
-                // 添加提交按钮
-                const submitBtn = document.createElement('button');
-                submitBtn.className = 'submit-structured-btn';
-                submitBtn.textContent = '确认';
-                submitBtn.onclick = submitStructuredAnswer;
-                container.appendChild(submitBtn);
+                // 添加提交按钮（使用jQuery）
+                const $submitBtn = $('<button>')
+                    .addClass('submit-structured-btn')
+                    .text('确认')
+                    .on('click', submitStructuredAnswer);
+                $container.append($submitBtn);
             }
         }
         
-        // 选择结构化选项
+        // 选择结构化选项（使用jQuery）
         function selectStructuredOption(element, option, index) {
             const question = currentQuestion;
             if (!question) return;
             
+            const $element = $(element);
+            
             if (question.isMultiple) {
                 // 多选：切换选中状态
-                const checkbox = element.querySelector('input[type="checkbox"]');
-                checkbox.checked = !checkbox.checked;
-                element.classList.toggle('selected', checkbox.checked);
+                const $checkbox = $element.find('input[type="checkbox"]');
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                $element.toggleClass('selected', $checkbox.prop('checked'));
             } else {
-                // 单选：取消其他选中，选中当前
-                const container = document.getElementById('structuredOptions');
-                container.querySelectorAll('.structured-option').forEach(opt => {
-                    opt.classList.remove('selected');
-                    opt.querySelector('input[type="radio"]').checked = false;
+                // 单选：取消其他选中，选中当前（使用jQuery）
+                $('#structuredOptions .structured-option').each(function() {
+                    $(this).removeClass('selected');
+                    $(this).find('input[type="radio"]').prop('checked', false);
                 });
-                element.classList.add('selected');
-                element.querySelector('input[type="radio"]').checked = true;
+                $element.addClass('selected');
+                $element.find('input[type="radio"]').prop('checked', true);
             }
         }
         
-        // 提交结构化答案
+        // 提交结构化答案（使用jQuery）
         async function submitStructuredAnswer() {
             if (!currentQuestion) return;
             
-            const container = document.getElementById('structuredOptions');
             const selectedOptions = [];
             
-            container.querySelectorAll('input:checked').forEach(input => {
-                const index = parseInt(input.value);
+            $('#structuredOptions input:checked').each(function() {
+                const index = parseInt($(this).val());
                 selectedOptions.push(currentQuestion.options[index]);
             });
             
@@ -1008,16 +1031,76 @@
                 askedSymptoms.push(currentQuestion.symptomId);
             }
             
-            // 如果选择了伴随症状，需要添加到selectedSymptoms
+            // 如果选择了伴随症状，需要将选项对应的症状ID添加到askedSymptoms（防止重复询问）
+            // 重要：必须在调用getNextStructuredQuestion之前完成，确保askedSymptoms包含所有已问的症状
             if (currentQuestion.dimension === 'ACCOMPANYING') {
-                // 这里需要根据选项找到对应的症状ID
-                // 暂时先不处理，因为需要症状名称到ID的映射
+                // 根据选项名称查找对应的症状ID并添加到askedSymptoms
+                try {
+                    // 获取所有症状列表（如果还没有缓存）
+                    if (!window.allSymptomsCache) {
+                        console.log('ACCOMPANYING维度：开始获取症状列表');
+                        const symptomsResponse = await $.ajax({
+                            url: '/petblog/api/diagnosis/symptoms',
+                            method: 'GET',
+                            dataType: 'json'
+                        });
+                        if (Array.isArray(symptomsResponse)) {
+                            window.allSymptomsCache = symptomsResponse;
+                            console.log('ACCOMPANYING维度：已缓存' + symptomsResponse.length + '个症状');
+                        } else {
+                            window.allSymptomsCache = [];
+                            console.warn('ACCOMPANYING维度：症状列表格式不正确');
+                        }
+                    }
+                    
+                    console.log('ACCOMPANYING维度：已选择的选项:', selectedOptions);
+                    console.log('ACCOMPANYING维度：当前askedSymptoms列表（处理前）:', askedSymptoms);
+                    
+                    // 为每个选项（无论是否选择）查找对应的症状ID并添加到askedSymptoms
+                    // 这样可以防止后续决策树再次询问这些症状
+                    const allOptions = currentQuestion.options || [];
+                    console.log('ACCOMPANYING维度：所有选项（包括未选择的）:', allOptions);
+                    
+                    for (const optionName of allOptions) {
+                        // 跳过"无"选项，它不对应任何症状
+                        if (optionName === '无') {
+                            console.log('ACCOMPANYING维度：跳过"无"选项');
+                            continue;
+                        }
+                        
+                        const symptom = window.allSymptomsCache.find(s => s.name === optionName);
+                        console.log('ACCOMPANYING维度：查找选项"' + optionName + '"对应的症状:', symptom);
+                        if (symptom && symptom.id) {
+                            // 无论是否选择，都添加到askedSymptoms，防止重复询问
+                            if (!askedSymptoms.includes(symptom.id)) {
+                                askedSymptoms.push(symptom.id);
+                                console.log('ACCOMPANYING维度：将选项"' + optionName + '"对应的症状ID=' + symptom.id + '添加到已问列表（防止重复询问）');
+                            } else {
+                                console.log('ACCOMPANYING维度：症状ID=' + symptom.id + '（选项"' + optionName + '"）已在已问列表中，跳过');
+                            }
+                            
+                            // 如果选择了这个选项，也添加到selectedSymptoms
+                            if (selectedOptions.includes(optionName) && !selectedSymptoms.includes(symptom.id)) {
+                                selectedSymptoms.push(symptom.id);
+                                console.log('ACCOMPANYING维度：将症状ID=' + symptom.id + '（选项"' + optionName + '"）添加到已选择列表');
+                            }
+                        } else {
+                            console.warn('ACCOMPANYING维度：未找到选项"' + optionName + '"对应的症状ID');
+                        }
+                    }
+                    
+                    console.log('ACCOMPANYING维度：处理后的askedSymptoms列表:', askedSymptoms);
+                    console.log('ACCOMPANYING维度：处理后的selectedSymptoms列表:', selectedSymptoms);
+                    console.log('ACCOMPANYING维度：已问症状数量:', askedSymptoms.length);
+                } catch (error) {
+                    console.error('ACCOMPANYING维度：获取症状列表失败，无法将伴随症状ID添加到已问列表:', error);
+                }
             }
             
             updateQuestionCountDisplay();
             updateBackButton();
             
-            // 获取下一个追问
+            // 获取下一个追问（此时askedSymptoms已经包含了所有伴随症状的ID）
             await getNextStructuredQuestion();
         }
         
@@ -1032,20 +1115,19 @@
                     askedSymptoms: askedSymptoms,
                     questionCount: questionCount,
                     mainComplaintId: mainComplaintId,
-                    answeredDimension: answeredDimensions[answeredDimensions.length - 1]
+                    answeredDimension: answeredDimensions[answeredDimensions.length - 1],
+                    questionHistory: questionHistory // 发送问题历史，包含结构化问题的答案
                 };
                 console.log('请求体:', JSON.stringify(requestBody, null, 2));
                 
-                const response = await fetch('/petblog/api/diagnosis/next', {
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/next',
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
+                    contentType: 'application/json',
+                    data: JSON.stringify(requestBody),
+                    dataType: 'json'
                 });
                 
-                console.log('响应状态:', response.status);
-                const data = await response.json();
                 console.log('响应数据:', JSON.stringify(data, null, 2));
                 
                 if (data.error) {
@@ -1068,16 +1150,21 @@
                         parentSymptomId: data.parentSymptomId
                     };
                     displayStructuredQuestion(question);
+                    // 确保问题卡片可见（使用jQuery）
+                    $('#questionCard').removeClass('hidden');
                 } else {
-                    // 切换到传统问诊流程
-                    document.getElementById('yesNoButtons').classList.remove('hidden');
-                    document.getElementById('structuredOptions').classList.add('hidden');
-                    document.getElementById('skipBtn').style.display = 'inline-block';
+                    // 切换到传统问诊流程（使用jQuery）
+                    $('#yesNoButtons').removeClass('hidden');
+                    $('#structuredOptions').addClass('hidden');
+                    $('#skipBtn').show();
+                    $('#questionArea').removeClass('hidden');
+                    $('#mainComplaintArea').addClass('hidden');
+                    $('#questionCard').removeClass('hidden');
                     
                     currentSymptomId = data.nextSymptomId;
                     const questionText = `您的宠物是否有 "${data.name}" 的症状？`;
-                    document.getElementById('questionTitle').textContent = questionText;
-                    document.getElementById('questionDescription').textContent = data.description || '';
+                    $('#questionTitle').text(questionText);
+                    $('#questionDescription').text(data.description || '');
                 }
                 
                 showLoading(false);
@@ -1088,15 +1175,16 @@
         }
 
         // 回答问题
+        // answer: true=是, false=否, null=不确定
         async function answerQuestion(answer) {
-            // 无论选择"是"还是"否"，都增加问题计数
+            // 无论选择"是"、"否"还是"不确定"，都增加问题计数
             questionCount++;
             updateQuestionCountDisplay();
             
             // 将当前问题和答案保存到历史记录
             if (currentSymptomId) {
-                const questionTitle = document.getElementById('questionTitle').textContent;
-                const questionDesc = document.getElementById('questionDescription').textContent;
+                const questionTitle = $('#questionTitle').text();
+                const questionDesc = $('#questionDescription').text();
                 questionHistory.push({
                     symptomId: currentSymptomId,
                     name: questionTitle,
@@ -1105,30 +1193,59 @@
                 });
             }
             
-            // 将当前症状添加到已问过的症状列表（无论选择是或否）
+            // 将当前症状添加到已问过的症状列表（无论选择是、否或不确定）
+            // 注意：在显示问题时已经添加过了，这里再次检查确保不会遗漏
             if (currentSymptomId && !askedSymptoms.includes(currentSymptomId)) {
                 askedSymptoms.push(currentSymptomId);
+                console.log('回答问题时添加症状到已问列表，ID=' + currentSymptomId + '，当前已问症状数=' + askedSymptoms.length);
+            } else if (currentSymptomId) {
+                console.log('症状ID=' + currentSymptomId + ' 已在已问列表中，跳过添加');
             }
             
-            if (answer && currentSymptomId) {
+            if (answer === true && currentSymptomId) {
                 // 只有选择"是"时才添加到已选择症状列表
                 if (!selectedSymptoms.includes(currentSymptomId)) {
                     selectedSymptoms.push(currentSymptomId);
+                }
+                // 从不确定列表中移除（如果存在）
+                const uncertainIndex = uncertainSymptoms.indexOf(currentSymptomId);
+                if (uncertainIndex > -1) {
+                    uncertainSymptoms.splice(uncertainIndex, 1);
+                }
+            } else if (answer === null && currentSymptomId) {
+                // 选择"不确定"时，添加到不确定列表
+                if (!uncertainSymptoms.includes(currentSymptomId)) {
+                    uncertainSymptoms.push(currentSymptomId);
+                    console.log('添加症状到不确定列表，ID=' + currentSymptomId);
+                }
+                // 从已选择列表中移除（如果存在）
+                const selectedIndex = selectedSymptoms.indexOf(currentSymptomId);
+                if (selectedIndex > -1) {
+                    selectedSymptoms.splice(selectedIndex, 1);
+                }
+            } else if (answer === false && currentSymptomId) {
+                // 选择"否"时，从已选择列表中移除（如果存在）
+                const selectedIndex = selectedSymptoms.indexOf(currentSymptomId);
+                if (selectedIndex > -1) {
+                    selectedSymptoms.splice(selectedIndex, 1);
+                }
+                // 从不确定列表中移除（如果存在）
+                const uncertainIndex = uncertainSymptoms.indexOf(currentSymptomId);
+                if (uncertainIndex > -1) {
+                    uncertainSymptoms.splice(uncertainIndex, 1);
                 }
             }
 
             // 更新返回按钮显示状态
             updateBackButton();
-
+            
             await getNextQuestion();
         }
         
         // 更新问题计数显示
+        // 更新问题计数显示（使用jQuery）
         function updateQuestionCountDisplay() {
-            const display = document.getElementById('questionCountDisplay');
-            if (display) {
-                display.textContent = questionCount;
-            }
+            $('#questionCountDisplay').text(questionCount);
         }
         
         // 返回上一个问题
@@ -1146,8 +1263,8 @@
             
             // 恢复上一个问题的状态
             currentSymptomId = prevQuestion.symptomId;
-            document.getElementById('questionTitle').textContent = prevQuestion.name;
-            document.getElementById('questionDescription').textContent = prevQuestion.description || '';
+            $('#questionTitle').text(prevQuestion.name);
+            $('#questionDescription').text(prevQuestion.description || '');
             
             // 如果上一个问题选择的是"是"，需要从selectedSymptoms中移除当前症状
             // 如果选择的是"否"，不需要移除
@@ -1172,14 +1289,14 @@
             updateBackButton();
         }
         
-        // 更新返回按钮显示状态
+        // 更新返回按钮显示状态（使用jQuery）
         function updateBackButton() {
-            const backBtn = document.getElementById('backBtn');
-            if (backBtn) {
+            const $backBtn = $('#backBtn');
+            if ($backBtn.length) {
                 if (questionHistory.length > 1) {
-                    backBtn.style.display = 'inline-block';
+                    $backBtn.show();
                 } else {
-                    backBtn.style.display = 'none';
+                    $backBtn.hide();
                 }
             }
         }
@@ -1191,8 +1308,8 @@
             
             // 将当前问题和答案保存到历史记录（跳过相当于选择"否"）
             if (currentSymptomId) {
-                const questionTitle = document.getElementById('questionTitle').textContent;
-                const questionDesc = document.getElementById('questionDescription').textContent;
+                const questionTitle = $('#questionTitle').text();
+                const questionDesc = $('#questionDescription').text();
                 questionHistory.push({
                     symptomId: currentSymptomId,
                     name: questionTitle,
@@ -1216,25 +1333,28 @@
         async function getNextQuestion() {
             try {
                 console.log('=== getNextQuestion 开始 ===');
+                console.log('当前mainComplaintId:', mainComplaintId);
                 showLoading(true);
                 
                 const requestBody = {
                     selectedSymptoms: selectedSymptoms,
                     askedSymptoms: askedSymptoms, // 发送所有已问过的症状（用于过滤）
-                    questionCount: questionCount // 发送已回答的问题总数
+                    uncertainSymptoms: uncertainSymptoms, // 发送回答"不确定"的症状列表
+                    questionCount: questionCount, // 发送已回答的问题总数
+                    mainComplaintId: mainComplaintId, // 保持主诉ID，确保一直传递
+                    questionHistory: questionHistory // 发送问题历史，包含结构化问题的答案
                 };
                 console.log('请求体:', JSON.stringify(requestBody, null, 2));
+                console.log('已问症状列表（发送给后端）:', askedSymptoms);
+                console.log('已问症状数量:', askedSymptoms.length);
                 
-                const response = await fetch('/petblog/api/diagnosis/next', {
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/next',
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
+                    contentType: 'application/json',
+                    data: JSON.stringify(requestBody),
+                    dataType: 'json'
                 });
-
-                console.log('响应状态:', response.status);
-                const data = await response.json();
                 console.log('=== getNextQuestion 响应数据 ===');
                 console.log('完整数据:', JSON.stringify(data, null, 2));
                 console.log('data.finished:', data.finished);
@@ -1248,21 +1368,63 @@
                 if (data.finished) {
                     // 诊断完成，显示结果
                     console.log('诊断完成，调用 showDiagnosisResult');
-                    showDiagnosisResult(data);
+                    console.log('诊断结果数据:', JSON.stringify(data, null, 2));
+                    if (!data.diseases || data.diseases.length === 0) {
+                        console.error('警告：诊断完成但没有疾病结果！');
+                        showError('诊断完成但没有结果，请重试');
+                    } else {
+                        showDiagnosisResult(data);
+                    }
                 } else {
-                    // 继续问诊
-                    if (data.nextSymptomId) {
-                    currentSymptomId = data.nextSymptomId;
-                        const questionText = `您的宠物是否有 "${data.name}" 的症状？`;
-                        document.getElementById('questionTitle').textContent = questionText;
-                    document.getElementById('questionDescription').textContent = data.description || '';
-                        
-                        // 更新历史记录中的最后一个问题（如果存在）
-                        if (questionHistory.length > 0) {
-                            questionHistory[questionHistory.length - 1].symptomId = currentSymptomId;
-                            questionHistory[questionHistory.length - 1].name = questionText;
-                            questionHistory[questionHistory.length - 1].description = data.description || '';
+                    // 继续问诊 - 适配新的后端返回格式
+                    let nextSymptom = null;
+                    let nextSymptomId = null;
+                    let symptomName = null;
+                    
+                    // 新格式：可能返回 nextQuestion (Symptom对象) 或 nextSymptomId + name
+                    if (data.nextQuestion) {
+                        // 新服务返回 Symptom 对象
+                        nextSymptom = data.nextQuestion;
+                        nextSymptomId = nextSymptom.id;
+                        symptomName = nextSymptom.name;
+                    } else if (data.nextSymptomId) {
+                        // 兼容旧格式或直接返回ID
+                        nextSymptomId = data.nextSymptomId;
+                        symptomName = data.name || '未知症状';
+                    } else if (data.symptomId) {
+                        // 兼容旧格式
+                        nextSymptomId = data.symptomId;
+                        symptomName = data.name || '未知症状';
+                    }
+                    
+                    if (nextSymptomId) {
+                        // 检查这个症状是否已经被问过（防止重复提问）
+                        if (askedSymptoms.includes(nextSymptomId)) {
+                            console.warn('警告：尝试显示已问过的症状，ID=' + nextSymptomId + '，跳过并获取下一个问题');
+                            console.log('当前已问症状列表:', askedSymptoms);
+                            // 如果已经问过，直接获取下一个问题
+                            await getNextQuestion();
+                            return;
                         }
+                        
+                        // 立即将当前症状ID添加到已问列表（防止在用户回答前重复请求）
+                        // 注意：这里只是临时标记，用户回答后还会再次添加（但不会重复，因为有检查）
+                        if (!askedSymptoms.includes(nextSymptomId)) {
+                            askedSymptoms.push(nextSymptomId);
+                            console.log('显示新问题，症状ID=' + nextSymptomId + '，已添加到已问列表。当前已问症状数=' + askedSymptoms.length);
+                        }
+                        
+                        currentSymptomId = nextSymptomId;
+                        const questionText = `您的宠物是否有 "${symptomName}" 的症状？`;
+                        $('#questionTitle').text(questionText);
+                        $('#questionDescription').text(data.description || '');
+                        
+                        // 确保问题区域可见
+                        $('#questionArea').removeClass('hidden');
+                        $('#yesNoButtons').removeClass('hidden');
+                        $('#structuredOptions').addClass('hidden');
+                        $('#mainComplaintArea').addClass('hidden');
+                        $('#questionCard').removeClass('hidden');
                         
                         // 注意：这里不更新历史记录，因为历史记录应该在用户回答问题时更新
                         // 这里只是显示下一个问题，等用户回答后再添加到历史记录
@@ -1273,7 +1435,7 @@
                     } else {
                         // 如果没有下一个问题，显示错误
                         showError('无法获取下一个问题，请刷新重试');
-                        console.error('nextSymptomId is null:', data);
+                        console.error('无法获取下一个问题，响应数据:', data);
                     }
                 }
                 
@@ -1294,18 +1456,15 @@
             try {
                 showLoading(true);
                 
-                const response = await fetch('/petblog/api/diagnosis/diagnose', {
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/diagnose',
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         selectedSymptoms: selectedSymptoms
-                    })
+                    }),
+                    dataType: 'json'
                 });
-
-                console.log('响应状态:', response.status);
-                const data = await response.json();
                 console.log('=== finishDiagnosis 响应数据 ===');
                 console.log('完整数据:', JSON.stringify(data, null, 2));
                 console.log('data.finished:', data.finished);
@@ -1348,35 +1507,63 @@
             console.log('data.finished:', data.finished);
             console.log('data.diseases:', data.diseases);
             
-            // 保存 selectedSymptoms 用于证据显示（在重置之前）
+            // 保存 selectedSymptoms 用于证据显示和保存问诊记录（在重置之前）
             const savedSelectedSymptoms = [...selectedSymptoms];
+            const savedAskedSymptoms = [...askedSymptoms];
             console.log('保存的已选择症状:', savedSelectedSymptoms);
+            console.log('保存的已问症状:', savedAskedSymptoms);
             
             // 完全隐藏答题卡片，显示结果卡片
-            document.getElementById('questionCard').classList.add('hidden');
-            document.getElementById('resultCard').classList.remove('hidden');
-            document.getElementById('termsArea').classList.add('hidden');
+            $('#questionCard').addClass('hidden');
+            $('#resultCard').removeClass('hidden');
+            $('#termsArea').addClass('hidden');
             diagnosisFinished = true; // 标记诊断已完成，防止用户返回答题区
             
             // 更新步骤指示器到第3步（结果）
             updateStepIndicator(3);
             
+            // 获取疾病列表（多个可能的疾病）- 必须在前面声明，因为后面会用到
+            const diseases = data.diseases || [];
+            
+            // 保存问诊记录（在重置之前，使用保存的症状列表）
+            if (diseases.length > 0) {
+                const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+                if (currentUser && currentUser.userId) {
+                    const firstDisease = diseases[0];
+                    // 调试：打印第一个疾病的所有字段
+                    console.log('=== 保存问诊记录前的疾病数据 ===');
+                    console.log('第一个疾病完整对象:', JSON.stringify(firstDisease, null, 2));
+                    console.log('diseaseId:', firstDisease.diseaseId);
+                    console.log('probability:', firstDisease.probability);
+                    console.log('disease:', firstDisease.disease);
+                    
+                    // 确保获取正确的diseaseId和probability
+                    const diseaseId = firstDisease.diseaseId || firstDisease.id || null;
+                    const probability = firstDisease.probability !== null && firstDisease.probability !== undefined 
+                                        ? firstDisease.probability 
+                                        : null;
+                    
+                    console.log('准备保存的数据 - diseaseId:', diseaseId, ', probability:', probability);
+                    
+                    // 使用保存的症状列表，而不是重置后的空数组
+                    await saveConsultation(currentUser.userId, diseaseId, probability, savedSelectedSymptoms);
+                }
+            }
+            
             // 重置所有状态，为下次问诊做准备
             selectedSymptoms = [];
             askedSymptoms = [];
+            uncertainSymptoms = [];
             questionCount = 0;
             questionHistory = [];
             currentSymptomId = null;
             isSaved = false;
             
             // 隐藏返回按钮
-            const backBtn = document.getElementById('backBtn');
-            if (backBtn) {
-                backBtn.style.display = 'none';
+            const $backBtn = $('#backBtn');
+            if ($backBtn.length) {
+                $backBtn.hide();
             }
-            
-            // 获取疾病列表（多个可能的疾病）
-            const diseases = data.diseases || [];
             
             // 调试：打印接收到的数据
             console.log('=== 诊断结果数据 ===');
@@ -1390,16 +1577,14 @@
             }
             
             if (diseases.length === 0) {
-                // 如果没有诊断结果，显示默认信息
-                document.getElementById('recommendationArea').innerHTML = '';
-                const diseasesListEl = document.getElementById('diseasesList');
-                diseasesListEl.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">无法诊断，请选择更多症状</div>';
+                // 如果没有诊断结果，显示默认信息（使用jQuery）
+                $('#recommendationArea').empty();
+                $('#diseasesList').html('<div class="text-center text-muted p-4">无法诊断，请选择更多症状</div>');
             } else {
-                // 显示诊疗建议（只显示第一个疾病的建议，在诊断结果上方）- 优化样式
+                // 显示诊疗建议（只显示第一个疾病的建议，在诊断结果上方）- 优化样式（使用jQuery）
                 const firstDisease = diseases[0];
                 const recommendation = firstDisease.recommendation || '建议继续观察宠物状况，如有异常请及时就医。';
-                const recommendationArea = document.getElementById('recommendationArea');
-                recommendationArea.innerHTML = `
+                $('#recommendationArea').html(`
                     <div style="background: linear-gradient(135deg, #fff8e1 0%, #ffe0b2 100%); 
                                 border-left: 5px solid #ff9800; 
                                 border-radius: 15px; 
@@ -1424,21 +1609,23 @@
                             </div>
                         </div>
                     </div>
-                `;
+                `);
                 
-                // 显示多个可能的疾病（不包含诊疗建议）
-                const diseasesListEl = document.getElementById('diseasesList');
+                // 显示多个可能的疾病（不包含诊疗建议）（使用jQuery）
                 let html = '';
                 
                 diseases.forEach((disease, index) => {
+                    // 适配新的后端返回格式：可能是 disease.disease 或直接是 disease 字符串
+                    const diseaseName = disease.disease || disease.name || '未知';
                     const probability = (disease.probability * 100).toFixed(1);
+                    const diseaseDescription = disease.description || '暂无疾病描述信息';
                     const rank = index + 1;
                     const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '📋';
                     let evidenceSymptoms = disease.evidenceSymptoms || [];
                     
                     // 如果证据为空，尝试从后端数据中获取
                     if (!evidenceSymptoms || evidenceSymptoms.length === 0) {
-                        console.warn(`疾病 ${disease.disease} 的证据症状为空，尝试从后端数据中获取`);
+                        console.warn(`疾病 ${diseaseName} 的证据症状为空，尝试从后端数据中获取`);
                         // 检查是否是数组格式问题
                         if (typeof disease.evidenceSymptoms === 'string') {
                             try {
@@ -1450,10 +1637,11 @@
                     }
                     
                     // 调试：打印每个疾病的数据
-                    console.log(`疾病 ${index + 1}:`, disease.disease);
+                    console.log(`疾病 ${index + 1}:`, diseaseName);
                     console.log(`  - 证据数量:`, evidenceSymptoms.length);
                     console.log(`  - 证据详情:`, JSON.stringify(evidenceSymptoms, null, 2));
                     console.log(`  - 原始证据数据:`, disease.evidenceSymptoms);
+                    console.log(`  - 疾病描述:`, diseaseDescription);
                     
                     html += `
                         <div style="background: ${index === 0 ? 'linear-gradient(135deg, #fff5e6 0%, #ffe6cc 100%)' : '#f9f9f9'}; 
@@ -1465,14 +1653,14 @@
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 1.5rem;">${rankEmoji}</span>
-                                    <h3 style="margin: 0; color: ${index === 0 ? '#ff6600' : '#333'}; font-size: 1.3rem;">${disease.disease || '未知'}</h3>
+                                    <h3 style="margin: 0; color: ${index === 0 ? '#ff6600' : '#333'}; font-size: 1.3rem;">${diseaseName}</h3>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 15px;">
                                     <div style="font-size: 1.1rem; font-weight: bold; color: ${index === 0 ? '#ff6600' : '#3d8b7e'};">
                                         ${probability}%
                                     </div>
                                     <button class="evidence-btn" 
-                                            data-disease-id="${disease.diseaseId}" 
+                                            data-disease-id="${disease.diseaseId || disease.id}" 
                                             data-evidence="${encodeURIComponent(JSON.stringify(evidenceSymptoms))}"
                                             style="background: linear-gradient(135deg, #3d8b7e 0%, #5ba898 100%);
                                                    color: white;
@@ -1487,126 +1675,144 @@
                                     </button>
                                 </div>
                             </div>
-                            <div style="background: #fff; border-radius: 8px; height: 8px; overflow: hidden; margin-top: 10px;">
+                            <div style="background: #fff; border-radius: 8px; height: 8px; overflow: hidden; margin-top: 10px; margin-bottom: 10px;">
                                 <div style="background: ${index === 0 ? 'linear-gradient(90deg, #ff6600 0%, #ffa500 100%)' : 'linear-gradient(90deg, #3d8b7e 0%, #5ba898 100%)'}; 
                                             height: 100%; 
                                             width: ${probability}%; 
                                             transition: width 0.5s ease;"></div>
                             </div>
+                            <div style="color: #666; font-size: 0.95rem; line-height: 1.6; margin-top: 10px; padding: 10px; background: rgba(255, 255, 255, 0.7); border-radius: 8px;">
+                                <strong style="color: #333;">疾病说明：</strong>${diseaseDescription}
+                            </div>
                         </div>
                     `;
                 });
                 
-                diseasesListEl.innerHTML = html;
+                $('#diseasesList').html(html);
                 
-                // 为所有证据按钮绑定点击事件
-                document.querySelectorAll('.evidence-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const diseaseId = parseInt(this.getAttribute('data-disease-id'));
-                        const evidenceStr = this.getAttribute('data-evidence');
-                        let evidenceSymptoms = [];
-                        try {
-                            // 先解码URI，再解析JSON
-                            const decodedStr = decodeURIComponent(evidenceStr || '[]');
-                            evidenceSymptoms = JSON.parse(decodedStr);
-                        } catch (e) {
-                            console.error('解析证据失败:', e);
-                            console.error('原始字符串:', evidenceStr);
-                        }
-                        showEvidenceModal(diseaseId, evidenceSymptoms);
-                    });
+                // 为所有证据按钮绑定点击事件（使用jQuery）
+                $('.evidence-btn').on('click', function() {
+                    const diseaseId = parseInt($(this).data('disease-id'));
+                    const evidenceStr = $(this).data('evidence');
+                    let evidenceSymptoms = [];
+                    try {
+                        // 先解码URI，再解析JSON
+                        const decodedStr = decodeURIComponent(evidenceStr || '[]');
+                        evidenceSymptoms = JSON.parse(decodedStr);
+                    } catch (e) {
+                        console.error('解析证据失败:', e);
+                        console.error('原始字符串:', evidenceStr);
+                    }
+                    showEvidenceModal(diseaseId, evidenceSymptoms);
                 });
             }
 
             // 自动保存问诊记录（只保存一次，保存第一个疾病）
-            if (!isSaved && diseases.length > 0) {
-            const currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
-            if (currentUser && currentUser.userId) {
-                    const firstDisease = diseases[0];
-                    await saveConsultation(currentUser.userId, firstDisease.diseaseId, firstDisease.probability);
-                    isSaved = true;
-                }
-            }
+            // 注意：这里使用保存的 selectedSymptoms，因为上面的代码已经重置了 selectedSymptoms
+            // 这个代码已经被上面的代码处理了，不需要重复保存
         }
 
-        // 保存问诊记录
-        async function saveConsultation(userId, diseaseId, probability) {
+        // 保存问诊记录（使用jQuery）
+        async function saveConsultation(userId, diseaseId, probability, symptomsToSave) {
             try {
-                const response = await fetch('/petblog/api/diagnosis/save', {
+                // 使用传入的症状列表，如果没有传入则使用当前的 selectedSymptoms
+                const symptoms = symptomsToSave || selectedSymptoms;
+                
+                // 验证必需参数
+                if (!userId) {
+                    console.error('保存问诊记录失败: userId为空');
+                    return;
+                }
+                if (!symptoms || symptoms.length === 0) {
+                    console.error('保存问诊记录失败: symptoms为空');
+                    return;
+                }
+                
+                // 验证diseaseId和probability，即使为null也保存（可能用户未完成诊断）
+                console.log('保存问诊记录: userId=' + userId + ', diseaseId=' + (diseaseId || 'null') + ', probability=' + (probability !== null && probability !== undefined ? probability : 'null') + ', symptoms=' + JSON.stringify(symptoms));
+                
+                const saveData = {
+                    userId: userId,
+                    selectedSymptoms: symptoms,
+                    resultDiseaseId: diseaseId || null,
+                    probability: (probability !== null && probability !== undefined) ? probability : null
+                };
+                
+                console.log('保存数据:', JSON.stringify(saveData, null, 2));
+                
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/save',
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        userId: userId,
-                        selectedSymptoms: selectedSymptoms,
-                        resultDiseaseId: diseaseId,
-                        probability: probability
-                    })
+                    contentType: 'application/json',
+                    data: JSON.stringify(saveData),
+                    dataType: 'json'
                 });
-
-                const data = await response.json();
                 if (data.success) {
-                    console.log('问诊记录保存成功');
+                    console.log('问诊记录保存成功:', data);
+                } else {
+                    console.error('保存问诊记录失败:', data.error || '未知错误');
                 }
             } catch (error) {
                 console.error('保存问诊记录失败:', error);
+                if (error.responseJSON) {
+                    console.error('错误详情:', error.responseJSON);
+                }
             }
         }
 
         // 更新已选择的症状显示
+        // 更新已选择的症状显示（使用jQuery）
         function updateSelectedSymptoms() {
-            const container = document.getElementById('selectedSymptomsList');
+            const $container = $('#selectedSymptomsList');
             
             if (selectedSymptoms.length === 0) {
-                container.innerHTML = '<span style="color: #666;">暂无</span>';
+                $container.html('<span style="color: #666;">暂无</span>');
                 return;
             }
 
             // 获取症状名称（这里简化处理，实际应该从API获取）
-            container.innerHTML = selectedSymptoms.map(id => 
+            $container.html(selectedSymptoms.map(id => 
                 `<span class="symptom-tag">症状 #${id}</span>`
-            ).join('');
+            ).join(''));
         }
 
-        // 更新步骤指示器
+        // 更新步骤指示器（使用jQuery）
         function updateStepIndicator(step) {
             currentStep = step;
             // 步骤1: 服务条款，步骤2: 问诊，步骤3: 结果
             for (let i = 1; i <= 3; i++) {
-                const stepEl = document.getElementById(`step${i}`);
-                if (stepEl) {
-                stepEl.classList.remove('active', 'completed');
-                if (i < step) {
-                    stepEl.classList.add('completed');
-                } else if (i === step) {
-                    stepEl.classList.add('active');
+                const $stepEl = $(`#step${i}`);
+                if ($stepEl.length) {
+                    $stepEl.removeClass('active completed');
+                    if (i < step) {
+                        $stepEl.addClass('completed');
+                    } else if (i === step) {
+                        $stepEl.addClass('active');
                     }
                 }
             }
         }
 
-        // 显示/隐藏加载中
+        // 显示/隐藏加载中（使用jQuery）
         function showLoading(show) {
             if (show) {
-                document.getElementById('loadingArea').classList.remove('hidden');
-                document.getElementById('questionArea').classList.add('hidden');
-                document.getElementById('mainComplaintArea').classList.add('hidden');
+                $('#loadingArea').removeClass('hidden');
+                $('#questionArea').addClass('hidden');
+                $('#mainComplaintArea').addClass('hidden');
             } else {
-                document.getElementById('loadingArea').classList.add('hidden');
+                $('#loadingArea').addClass('hidden');
                 // 不自动显示 questionArea，由调用者决定显示哪个区域
             }
         }
 
-        // 显示错误
+        // 显示错误（使用jQuery）
         function showError(message) {
-            const errorEl = document.getElementById('errorMessage');
-            errorEl.textContent = message;
-            errorEl.classList.remove('hidden');
+            const $errorEl = $('#errorMessage');
+            $errorEl.text(message).removeClass('hidden');
             showLoading(false);
             
             setTimeout(() => {
-                errorEl.classList.add('hidden');
+                $errorEl.addClass('hidden');
             }, 5000);
         }
 
@@ -1627,17 +1833,17 @@
             // 不操作localStorage，每次重新开始都显示服务条款
             
             // 重置表单
-            document.getElementById('termsAccepted').checked = false;
+            $('#termsAccepted').prop('checked', false);
             
             // 隐藏返回按钮
-            const backBtn = document.getElementById('backBtn');
-            if (backBtn) {
-                backBtn.style.display = 'none';
+            const $backBtn = $('#backBtn');
+            if ($backBtn.length) {
+                $backBtn.hide();
             }
             
-            // 隐藏结果卡片，显示服务条款页面
-            document.getElementById('resultCard').classList.add('hidden');
-            document.getElementById('questionCard').classList.add('hidden');
+            // 隐藏结果卡片，显示服务条款页面（使用jQuery）
+            $('#resultCard').addClass('hidden');
+            $('#questionCard').addClass('hidden');
             updateStepIndicator(1); // 重置到第1步（服务条款）
             showTermsPage();
         }
@@ -1652,9 +1858,15 @@
             }
             
             try {
-                // 获取用户的问诊历史
-                const response = await fetch(`/petblog/api/diagnosis/history?userId=${currentUser.userId}`);
-                const data = await response.json();
+                // 获取用户的问诊历史（使用jQuery）
+                const data = await $.ajax({
+                    url: '/petblog/api/diagnosis/history',
+                    method: 'GET',
+                    data: {
+                        userId: currentUser.userId
+                    },
+                    dataType: 'json'
+                });
                 
                 if (data.error) {
                     alert('获取问诊历史失败：' + data.error);
@@ -1669,111 +1881,105 @@
             }
         }
         
-        // 显示问诊历史模态窗口
+        // 显示问诊历史模态窗口（使用Bootstrap模态和jQuery）
         function showConsultationHistoryModal(consultations) {
-            // 创建模态窗口
-            let modal = document.getElementById('consultationHistoryModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'consultationHistoryModal';
-                modal.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.5);
-                    z-index: 10000;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                `;
-                
-                const modalContent = document.createElement('div');
-                modalContent.style.cssText = `
-                    background: white;
-                    border-radius: 15px;
-                    padding: 30px;
-                    max-width: 800px;
-                    max-height: 80vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-                    position: relative;
-                `;
-                
-                modalContent.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; color: var(--primary-color);">📋 问诊历史记录</h2>
-                        <button onclick="closeConsultationHistoryModal()" style="
-                            background: none;
-                            border: none;
-                            font-size: 24px;
-                            cursor: pointer;
-                            color: #999;
-                            padding: 0;
-                            width: 30px;
-                            height: 30px;
-                            line-height: 30px;
-                        ">×</button>
+            // 检查是否已存在模态窗口，如果不存在则创建
+            let $modal = $('#consultationHistoryModal');
+            if ($modal.length === 0) {
+                // 使用Bootstrap模态组件创建模态窗口
+                const modalHTML = `
+                    <div class="modal fade" id="consultationHistoryModal" tabindex="-1" aria-labelledby="consultationHistoryModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="consultationHistoryModalLabel">
+                                        <i class="bi bi-clock-history"></i> 问诊历史记录（最近5次）
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="consultationHistoryList"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="consultationHistoryList"></div>
                 `;
-                
-                modal.appendChild(modalContent);
-                document.body.appendChild(modal);
+                $('body').append(modalHTML);
+                $modal = $('#consultationHistoryModal');
             }
             
-            // 显示模态窗口
-            modal.style.display = 'flex';
+            // 只显示最近5条记录（按创建时间降序，取前5条）
+            const sortedConsultations = [...consultations].sort((a, b) => {
+                const dateA = new Date(a.createdAt || a.created_at || 0);
+                const dateB = new Date(b.createdAt || b.created_at || 0);
+                return dateB - dateA; // 降序排序，最新的在前
+            });
+            const recentConsultations = sortedConsultations.slice(0, 5);
             
-            // 填充问诊历史列表
-            const listEl = document.getElementById('consultationHistoryList');
-            if (consultations.length === 0) {
-                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">暂无问诊记录</div>';
+            // 填充问诊历史列表（使用jQuery）
+            const $listEl = $('#consultationHistoryList');
+            if (recentConsultations.length === 0) {
+                $listEl.html('<div class="text-center text-muted p-5">暂无问诊记录</div>');
             } else {
                 let html = '';
-                consultations.forEach((consultation, index) => {
+                recentConsultations.forEach((consultation, index) => {
                     const date = new Date(consultation.createdAt || consultation.created_at);
                     const dateStr = date.toLocaleString('zh-CN');
-                    const diseaseName = consultation.diseaseName || consultation.disease_name || '未诊断';
-                    const probability = consultation.probability ? (consultation.probability * 100).toFixed(1) + '%' : '未知';
+                    // 修复：正确获取疾病名称，支持多种字段名
+                    const diseaseName = consultation.diseaseName || consultation.disease_name || 
+                                       (consultation.diseaseId ? '未知疾病' : '未诊断');
+                    // 修复：正确处理probability字段，包括0值和null值
+                    let probability = '未知';
+                    if (consultation.probability !== null && consultation.probability !== undefined) {
+                        // probability可能是0-1之间的小数，也可能是0-100之间的百分比
+                        const probValue = consultation.probability;
+                        if (probValue > 1) {
+                            // 如果大于1，说明是百分比格式
+                            probability = probValue.toFixed(1) + '%';
+                        } else {
+                            // 如果是0-1之间的小数，转换为百分比
+                            probability = (probValue * 100).toFixed(1) + '%';
+                        }
+                    }
                     
                     html += `
-                        <div style="
-                            border: 1px solid #ddd;
-                            border-radius: 10px;
-                            padding: 20px;
-                            margin-bottom: 15px;
-                            background: ${index % 2 === 0 ? '#f9f9f9' : 'white'};
-                            transition: all 0.3s ease;
-                        " onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateY(-2px)';" 
-                           onmouseout="this.style.boxShadow='none'; this.style.transform='translateY(0)';">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center;">
-                                <strong style="color: var(--primary-color); font-size: 1.1rem;">问诊记录 #${consultation.id || index + 1}</strong>
-                                <span style="color: #999; font-size: 0.9rem;">${dateStr}</span>
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <div style="margin-bottom: 10px;">
-                                    <strong style="color: #333;">诊断结果：</strong>
-                                    <span style="color: var(--primary-color); font-weight: 600; font-size: 1.05rem; margin-left: 8px;">${diseaseName}</span>
+                        <div class="card mb-3 ${index % 2 === 0 ? 'bg-light' : ''}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="card-title text-primary mb-0">问诊记录 #${consultation.id || index + 1}</h6>
+                                    <small class="text-muted">${dateStr}</small>
                                 </div>
-                                <div style="margin-bottom: 10px;">
-                                    <strong style="color: #333;">诊断概率：</strong>
-                                    <span style="color: #3d8b7e; font-weight: 600; margin-left: 8px;">${probability}</span>
+                                <div class="mb-2">
+                                    <strong>诊断结果：</strong>
+                                    <span class="text-primary fw-bold ms-2">${diseaseName}</span>
+                                </div>
+                                <div>
+                                    <strong>诊断概率：</strong>
+                                    <span class="text-success fw-bold ms-2">${probability}</span>
                                 </div>
                             </div>
                         </div>
                     `;
                 });
-                listEl.innerHTML = html;
+                $listEl.html(html);
             }
+            
+            // 使用Bootstrap模态API显示模态窗口
+            const modal = new bootstrap.Modal($modal[0]);
+            modal.show();
         }
         
-        // 关闭问诊历史模态窗口
+        // 关闭问诊历史模态窗口（使用Bootstrap模态API）
         function closeConsultationHistoryModal() {
-            const modal = document.getElementById('consultationHistoryModal');
-            if (modal) {
-                modal.style.display = 'none';
+            const $modal = $('#consultationHistoryModal');
+            if ($modal.length) {
+                const modal = bootstrap.Modal.getInstance($modal[0]);
+                if (modal) {
+                    modal.hide();
+                }
             }
         }
         
@@ -1805,114 +2011,74 @@
                 }
             }
             
-            // 创建证据模态窗口
-            let modal = document.getElementById('evidenceModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'evidenceModal';
-                modal.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.5);
-                    z-index: 10001;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                `;
-                
-                const modalContent = document.createElement('div');
-                modalContent.style.cssText = `
-                    background: white;
-                    border-radius: 15px;
-                    padding: 30px;
-                    max-width: 600px;
-                    max-height: 80vh;
-                    overflow-y: auto;
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-                    position: relative;
-                `;
-                
-                modalContent.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="margin: 0; color: var(--primary-color);">🔍 支持该疾病的症状证据</h2>
-                        <button onclick="closeEvidenceModal()" style="
-                            background: none;
-                            border: none;
-                            font-size: 24px;
-                            cursor: pointer;
-                            color: #999;
-                            padding: 0;
-                            width: 30px;
-                            height: 30px;
-                            line-height: 30px;
-                        ">×</button>
+            // 创建证据模态窗口（使用Bootstrap模态和jQuery）
+            let $modal = $('#evidenceModal');
+            if ($modal.length === 0) {
+                // 使用Bootstrap模态组件创建模态窗口
+                const modalHTML = `
+                    <div class="modal fade" id="evidenceModal" tabindex="-1" aria-labelledby="evidenceModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="evidenceModalLabel">
+                                        <i class="bi bi-search"></i> 支持该疾病的症状证据
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="evidenceList"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="evidenceList"></div>
                 `;
-                
-                modal.appendChild(modalContent);
-                document.body.appendChild(modal);
+                $('body').append(modalHTML);
+                $modal = $('#evidenceModal');
             }
             
-            // 显示模态窗口
-            modal.style.display = 'flex';
-            
-            // 填充证据列表
-            const listEl = document.getElementById('evidenceList');
+            // 填充证据列表（使用jQuery）
+            const $listEl = $('#evidenceList');
             if (!evidenceSymptoms || evidenceSymptoms.length === 0) {
-                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">暂无支持该疾病的症状证据</div>';
+                $listEl.html('<div class="text-center text-muted p-5">暂无支持该疾病的症状证据</div>');
             } else {
                 let html = '';
                 evidenceSymptoms.forEach((evidence, index) => {
-                    const weight = evidence.weight ? (evidence.weight * 100).toFixed(0) + '%' : '未知';
-                    const isRequired = evidence.isRequired ? '<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; margin-left: 8px;">必需</span>' : '';
-                    
                     html += `
-                        <div style="
-                            border: 1px solid #ddd;
-                            border-radius: 10px;
-                            padding: 15px;
-                            margin-bottom: 10px;
-                            background: ${index % 2 === 0 ? '#f9f9f9' : 'white'};
-                            border-left: 4px solid var(--primary-color);
-                        ">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <strong style="color: var(--primary-color); font-size: 1.05rem;">${evidence.symptomName || '未知症状'}</strong>
-                                    ${isRequired}
-                                </div>
-                                <div style="color: #3d8b7e; font-weight: 600;">
-                                    权重: ${weight}
+                        <div class="card mb-2 ${index % 2 === 0 ? 'bg-light' : ''}" style="border-left: 4px solid var(--primary-color);">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong class="text-primary">${evidence.symptomName || '未知症状'}</strong>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     `;
                 });
-                listEl.innerHTML = html;
+                $listEl.html(html);
             }
+            
+            // 使用Bootstrap模态API显示模态窗口
+            const modal = new bootstrap.Modal($modal[0]);
+            modal.show();
         }
         
-        // 关闭证据模态窗口
+        // 关闭证据模态窗口（使用Bootstrap模态API）
         function closeEvidenceModal() {
-            const modal = document.getElementById('evidenceModal');
-            if (modal) {
-                modal.style.display = 'none';
+            const $modal = $('#evidenceModal');
+            if ($modal.length) {
+                const modal = bootstrap.Modal.getInstance($modal[0]);
+                if (modal) {
+                    modal.hide();
+                }
             }
         }
         
-        // 点击证据模态窗口外部关闭
-        window.addEventListener('click', function(event) {
-            const modal = document.getElementById('evidenceModal');
-            if (modal && event.target === modal) {
-                closeEvidenceModal();
-            }
-        });
-        
-        // 页面加载完成后，确认所有函数已定义
-        window.addEventListener('DOMContentLoaded', function() {
+        // 页面加载完成后，确认所有函数已定义（使用jQuery）
+        $(document).ready(function() {
             console.log('=== 页面加载完成 ===');
             console.log('函数定义检查:');
             console.log('  - showDiagnosisResult:', typeof showDiagnosisResult);

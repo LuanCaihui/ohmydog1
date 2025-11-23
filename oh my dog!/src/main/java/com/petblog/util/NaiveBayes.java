@@ -11,6 +11,7 @@ import java.util.Map;
 /**
  * 朴素贝叶斯诊断算法
  * 用于根据用户选择的症状诊断可能的疾病
+ * 改进版本：使用改进的几何平均，考虑症状匹配比例
  */
 public class NaiveBayes {
 
@@ -26,6 +27,38 @@ public class NaiveBayes {
             this.disease = disease;
             this.diseaseId = diseaseId;
             this.probability = probability;
+        }
+    }
+
+    /**
+     * 计算改进的归一化概率（考虑症状匹配比例）
+     * @param rawProb 原始概率
+     * @param symptomCount 症状总数
+     * @param matchedSymptomCount 匹配的症状数
+     * @return 归一化后的概率
+     */
+    private static double calculateNormalizedProbability(double rawProb, int symptomCount, int matchedSymptomCount) {
+        if (symptomCount == 0) {
+            return rawProb;
+        }
+        
+        double matchRatio = (double) matchedSymptomCount / symptomCount;
+        
+        // 进一步优化的归一化：显著减少惩罚，提高概率值
+        if (matchRatio > 0.5) {
+            // 高匹配比例（>50%）：使用非常温和的归一化
+            // 归一化因子 = 1 / (症状数 * (1 - 匹配比例 * 0.7))
+            // 进一步减少归一化惩罚
+            double normalizationFactor = 1.0 / (symptomCount * (1.0 - matchRatio * 0.7));
+            return Math.pow(rawProb, normalizationFactor);
+        } else if (matchRatio > 0.2) {
+            // 中等匹配比例（20%-50%）：使用温和的几何平均
+            // 使用症状数的0.6次方，进一步减少惩罚
+            return Math.pow(rawProb, 0.6 / symptomCount);
+        } else {
+            // 低匹配比例（<20%）：仍然使用较温和的几何平均
+            // 使用0.7次方而不是完整的1.0次方
+            return Math.pow(rawProb, 0.7 / symptomCount);
         }
     }
 
@@ -50,10 +83,14 @@ public class NaiveBayes {
         for (Disease d : diseases) {
             double p = 1.0;
             List<DiseaseSymptom> dsList = diseaseSymMap.get(d.getId());
+            int matchedSymptomCount = 0;
 
             if (dsList == null || dsList.isEmpty()) {
                 p = 0.01; // 没有症状关系的疾病给很小的概率
             } else {
+                // 使用疾病的症状总数进行归一化，而不是用户选择的症状数
+                int diseaseSymptomCount = dsList.size();
+                
                 for (Integer sId : symptoms) {
                     boolean found = false;
                     for (DiseaseSymptom ds : dsList) {
@@ -67,26 +104,29 @@ public class NaiveBayes {
                             if (ds.getWeight() != null) {
                                 p *= ds.getWeight();
                             } else {
-                                p *= 0.5; // 默认权重
+                                p *= 1.2; // 提高默认权重
                             }
+                            matchedSymptomCount++;
                             found = true;
                             break;
                         }
                     }
-                    // 未出现的症状 → 给一个小概率
+                    // 未出现的症状 → 进一步提高概率（从0.3改为0.6），减少惩罚
+                    // 因为用户可能只选择了部分症状，未选择的症状不应该过度惩罚
                     if (!found) {
-                        p *= 0.1;
+                        p *= 0.6;
                     }
                     // 如果已经互斥，直接跳出
                     if (p == 0.0) {
                         break;
                     }
                 }
-            }
-
-            // 归一化：除以症状数量（避免症状越多概率越小）
-            if (symptoms.size() > 0) {
-                p = Math.pow(p, 1.0 / symptoms.size());
+                
+                // 使用疾病的症状总数进行归一化，而不是用户选择的症状数
+                // 这样更合理，因为一个疾病的症状可能很多，用户不可能全部选择
+                if (diseaseSymptomCount > 0 && p > 0.0) {
+                    p = calculateNormalizedProbability(p, diseaseSymptomCount, matchedSymptomCount);
+                }
             }
 
             diseaseLikelihoods.put(d.getId(), p);
@@ -149,10 +189,14 @@ public class NaiveBayes {
         for (Disease d : diseases) {
             double p = 1.0;
             List<DiseaseSymptom> dsList = diseaseSymMap.get(d.getId());
+            int matchedSymptomCount = 0;
 
             if (dsList == null || dsList.isEmpty()) {
                 p = 0.01; // 没有症状关系的疾病给很小的概率
             } else {
+                // 使用疾病的症状总数进行归一化，而不是用户选择的症状数
+                int diseaseSymptomCount = dsList.size();
+                
                 for (Integer sId : symptoms) {
                     boolean found = false;
                     for (DiseaseSymptom ds : dsList) {
@@ -166,26 +210,29 @@ public class NaiveBayes {
                             if (ds.getWeight() != null) {
                                 p *= ds.getWeight();
                             } else {
-                                p *= 0.5; // 默认权重
+                                p *= 1.2; // 提高默认权重
                             }
+                            matchedSymptomCount++;
                             found = true;
                             break;
                         }
                     }
-                    // 未出现的症状 → 给一个小概率
+                    // 未出现的症状 → 进一步提高概率（从0.3改为0.6），减少惩罚
+                    // 因为用户可能只选择了部分症状，未选择的症状不应该过度惩罚
                     if (!found) {
-                        p *= 0.1;
+                        p *= 0.6;
                     }
                     // 如果已经互斥，直接跳出
                     if (p == 0.0) {
                         break;
                     }
                 }
-            }
-
-            // 归一化：除以症状数量（避免症状越多概率越小）
-            if (symptoms.size() > 0) {
-                p = Math.pow(p, 1.0 / symptoms.size());
+                
+                // 使用疾病的症状总数进行归一化，而不是用户选择的症状数
+                // 这样更合理，因为一个疾病的症状可能很多，用户不可能全部选择
+                if (diseaseSymptomCount > 0 && p > 0.0) {
+                    p = calculateNormalizedProbability(p, diseaseSymptomCount, matchedSymptomCount);
+                }
             }
 
             diseaseLikelihoods.put(d.getId(), p);
@@ -221,4 +268,3 @@ public class NaiveBayes {
         return results;
     }
 }
-
